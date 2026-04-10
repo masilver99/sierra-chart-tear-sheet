@@ -548,6 +548,20 @@
     function fmtDur(s){if(s==null)return '\u2014';s=Math.round(s);if(s<0)return '\u2014';if(s<60)return s+'s';var m=Math.floor(s/60),sc=s%60;if(s<3600)return m+'m '+sc+'s';var h=Math.floor(s/3600),rm=s%3600,mn=Math.floor(rm/60);return mn?h+'h '+mn+'m':h+'h';}
     function fmtF(v,d){return v!=null?(+v).toFixed(d!=null?d:2):'\u2014';}
     function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    var _dayAbsVals=Object.values(calData.days).map(function(d){return Math.abs(d.net_pnl);});
+    var dayMax=_dayAbsVals.length?Math.max.apply(null,_dayAbsVals):1;
+    var monthMax=0;
+    Object.values(calData.years).forEach(function(yd){Object.values(yd.months).forEach(function(md){monthMax=Math.max(monthMax,Math.abs(md.net_pnl));});});
+    monthMax=monthMax||1;
+    function pnlBg(val,scale){
+      var norm=Math.max(-1,Math.min(1,val/scale));
+      var hue=((norm+1)*60).toFixed(0);
+      var strength=Math.abs(norm);
+      var sat=(65+strength*20).toFixed(0);
+      var lit=(28-strength*10).toFixed(0);
+      var alpha=(0.20+strength*0.50).toFixed(2);
+      return 'hsla('+hue+','+sat+'%,'+lit+'%,'+alpha+')';
+    }
     function render(){if(state.view==='year')renderYear();else renderMonth(state.year,state.month);}
     window.calShowMonth=function(yr,m){state={view:'month',year:yr,month:m,activeDay:null};render();};
     window.calBackToYear=function(){state={view:'year',year:null,month:null,activeDay:null};render();};
@@ -560,7 +574,7 @@
         html+='<div class="cal-month-grid">';
         for(var m=1;m<=12;m++){
           var md=yd.months[String(m)];
-          if(md){var mc=md.is_profitable?'cal-month-box profitable':'cal-month-box unprofitable';html+='<div class="'+mc+'" onclick="calShowMonth(\''+yr+'\','+m+')"><div class="cal-mname">'+MS[m-1]+'</div><div class="cal-mpnl '+(md.is_profitable?'pos':'neg')+'">'+fmtMoney(md.net_pnl)+'</div><div class="cal-mmeta">'+md.n_trades+'T &middot; '+md.n_days+'d</div></div>';}
+          if(md){var mc=md.is_profitable?'cal-month-box profitable':'cal-month-box unprofitable';html+='<div class="'+mc+'" style="background-color:'+pnlBg(md.net_pnl,monthMax)+'" onclick="calShowMonth(\''+yr+'\','+m+')"><div class="cal-mname">'+MS[m-1]+'</div><div class="cal-mpnl '+(md.is_profitable?'pos':'neg')+'">'+fmtMoney(md.net_pnl)+'</div><div class="cal-mmeta">'+md.n_trades+'T &middot; '+md.n_days+'d</div></div>';}
           else{html+='<div class="cal-month-box empty"><div class="cal-mname">'+MS[m-1]+'</div></div>';}
         }
         html+='</div>';
@@ -587,7 +601,7 @@
           if(day==null){tbl+='<td class="cal-day-empty"></td>';}
           else{
             var ds=yr+'-'+pad2(m)+'-'+pad2(day),dd=calData.days[ds];
-            if(dd){var ia=state.activeDay===ds,dc='cal-day-cell trading '+(dd.is_profitable?'win':'loss')+(ia?' active':'');tbl+='<td class="'+dc+'" onclick="calToggleDay(\''+ds+'\')"><div class="cal-daynum">'+day+'</div><div class="cal-daypnl '+(dd.is_profitable?'pos':'neg')+'">'+fmtMoney(dd.net_pnl)+'</div><div class="cal-daymeta">'+dd.n_trades+'T</div></td>';}
+            if(dd){var ia=state.activeDay===ds,dc='cal-day-cell trading '+(dd.is_profitable?'win':'loss')+(ia?' active':'');var _bg=ia?'background-color:rgba(88,166,255,.08)':'background-color:'+pnlBg(dd.net_pnl,dayMax);tbl+='<td class="'+dc+'" style="'+_bg+'" onclick="calToggleDay(\''+ds+'\')"><div class="cal-daynum">'+day+'</div><div class="cal-daypnl '+(dd.is_profitable?'pos':'neg')+'">'+fmtMoney(dd.net_pnl)+'</div><div class="cal-daymeta">'+dd.n_trades+'T</div></td>';}
             else{tbl+='<td class="cal-day-cell inactive"><div class="cal-daynum">'+day+'</div></td>';}
           }
         }
