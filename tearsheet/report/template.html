@@ -189,6 +189,8 @@
     <div class="kpi"><div class="label">Gross P&amp;L</div><div class="value {{ 'pos' if gp >= 0 else 'neg' }}">${{ "{:,.2f}".format(gp) }}</div></div>
     {% set np = metrics.total_net_pnl %}
     <div class="kpi"><div class="label">Net P&amp;L</div><div class="value {{ 'pos' if np >= 0 else 'neg' }}">${{ "{:,.2f}".format(np) }}</div></div>
+    {% set adp = metrics.avg_daily_net_pnl %}
+    <div class="kpi"><div class="label">Avg Daily P&amp;L</div><div class="value {{ 'pos' if adp is not none and adp >= 0 else 'neg' }}">{{ "${:,.2f}".format(adp) if adp is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Total Fees</div><div class="value neg">${{ "{:,.2f}".format(metrics.total_fees) }}</div></div>
     <div class="kpi"><div class="label">Win Rate</div><div class="value">{{ "{:.1f}%".format(metrics.win_rate * 100) }}</div></div>
     <div class="kpi"><div class="label">Avg Win</div><div class="value pos">${{ "{:,.2f}".format(metrics.avg_win) }}</div></div>

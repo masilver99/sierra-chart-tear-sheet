@@ -125,6 +125,7 @@ def compute_metrics(trades: list[dict[str, Any]], equity_curve: list[dict[str, A
     profitable_days = sum(1 for v in daily_pnls_by_date.values() if v > 0)
     pct_profitable_days = profitable_days / total_trading_days if total_trading_days else None
     avg_trades_per_day = round(n / total_trading_days, 2) if total_trading_days else None
+    avg_daily_net_pnl = round(total_net / total_trading_days, 2) if total_trading_days else None
 
     return {
         "n_trades": n,
@@ -177,6 +178,7 @@ def compute_metrics(trades: list[dict[str, Any]], equity_curve: list[dict[str, A
         "total_trading_days": total_trading_days,
         "pct_profitable_days": round(pct_profitable_days, 4) if pct_profitable_days is not None else None,
         "avg_trades_per_day": avg_trades_per_day,
+        "avg_daily_net_pnl": avg_daily_net_pnl,
     }
 
 
@@ -202,6 +204,7 @@ def _empty_metrics() -> dict[str, Any]:
         "positive_r_count", "negative_r_count",
         "recovery_factor", "win_rate_be",
         "trading_days", "total_trading_days", "pct_profitable_days", "avg_trades_per_day",
+        "avg_daily_net_pnl",
     ]}
 
 
