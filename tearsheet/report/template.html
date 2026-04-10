@@ -266,6 +266,9 @@
   <h2 id="sec-equity">Equity Curve</h2>
   <div class="chart-wrapper">{{ equity_chart | safe }}</div>
 
+  <h2 id="sec-returns">Returns</h2>
+  <div class="chart-wrapper">{{ returns_chart | safe }}</div>
+
   <h2 id="sec-drawdown">Drawdown</h2>
   <div class="chart-wrapper">{{ drawdown_chart | safe }}</div>
 
@@ -280,6 +283,9 @@
 
   <h2 id="sec-distribution">Trade P&amp;L Distribution</h2>
   <div class="chart-wrapper">{{ pnl_distribution_chart | safe }}</div>
+
+  <h2 id="sec-duration-profit">Time in Trade vs P&amp;L (Std Dev)</h2>
+  <div class="chart-wrapper">{{ duration_profit_scatter_chart | safe }}</div>
 
   <h2 id="sec-timing">Timing Heatmap</h2>
   <div class="chart-wrapper">{{ timing_heatmap_chart | safe }}</div>
@@ -335,6 +341,25 @@
         {% for seg, s in segmentation.by_direction.items() %}
           <tr>
             <td>{{ seg }}</td><td>{{ s.n_trades }}</td>
+            <td>{{ "{:.1f}%".format(s.win_rate * 100) if s.win_rate is not none else "—" }}</td>
+            <td class="{{ 'win' if s.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.total_gross_pnl) }}</td>
+            <td class="{{ 'win' if s.avg_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.avg_pnl) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if segmentation.by_instrument %}
+    <div class="seg-card">
+      <h3>By Instrument</h3>
+      <table>
+        <thead><tr><th>Instrument</th><th>N</th><th>Win%</th><th>Gross P&amp;L</th><th>Avg P&amp;L</th></tr></thead>
+        <tbody>
+        {% for seg, s in segmentation.by_instrument.items() %}
+          <tr>
+            <td>{{ seg or "(unknown)" }}</td><td>{{ s.n_trades }}</td>
             <td>{{ "{:.1f}%".format(s.win_rate * 100) if s.win_rate is not none else "—" }}</td>
             <td class="{{ 'win' if s.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.total_gross_pnl) }}</td>
             <td class="{{ 'win' if s.avg_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.avg_pnl) }}</td>
@@ -636,14 +661,17 @@
   {% endif %}
 
   {% if benchmark_metrics %}
-  <h2 id="sec-benchmark">Benchmark Comparison (SPY)</h2>
+  <h2 id="sec-benchmark">Benchmark Comparison (S&amp;P 500 / {{ benchmark_metrics.ticker or "SPY" }})</h2>
   <div class="kpi-grid" style="margin-bottom:12px">
     <div class="kpi"><div class="label">Strategy Return</div>
       <div class="value {{ 'pos' if benchmark_metrics.strategy_total_return_pct >= 0 else 'neg' }}">
-      {{ "{:.2f}%".format(benchmark_metrics.strategy_total_return_pct * 100) }}</div></div>
-    <div class="kpi"><div class="label">SPY Return</div>
+      {{ "{:.2f}%".format(benchmark_metrics.strategy_total_return_pct) }}</div></div>
+    <div class="kpi"><div class="label">S&amp;P 500 Return ({{ benchmark_metrics.ticker or "SPY" }})</div>
       <div class="value {{ 'pos' if benchmark_metrics.benchmark_total_return_pct >= 0 else 'neg' }}">
-      {{ "{:.2f}%".format(benchmark_metrics.benchmark_total_return_pct * 100) }}</div></div>
+      {{ "{:.2f}%".format(benchmark_metrics.benchmark_total_return_pct) }}</div></div>
+    <div class="kpi"><div class="label">Alpha</div>
+      <div class="value {{ 'pos' if benchmark_metrics.alpha >= 0 else 'neg' }}">
+      {{ "{:.2f}%".format(benchmark_metrics.alpha) }}</div></div>
     {% if benchmark_metrics.beta is not none %}
     <div class="kpi"><div class="label">Beta</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.beta) }}</div></div>
     <div class="kpi"><div class="label">Alpha (ann.)</div>
@@ -652,7 +680,7 @@
     <div class="kpi"><div class="label">Correlation</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.correlation) }}</div></div>
     {% endif %}
   </div>
-  <div class="chart-wrapper">{{ benchmark_chart | safe }}</div>
+  <div class="chart-wrapper"></div>
   {% endif %}
 
   {% if sc_statistics %}

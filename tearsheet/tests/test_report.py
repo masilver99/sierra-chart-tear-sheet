@@ -81,6 +81,32 @@ def test_render_html_contains_new_visual_sections(minimal_report_inputs, tmp_pat
     assert "Outcome Mix" in html
 
 
+def test_render_html_contains_instrument_breakdown(minimal_report_inputs, tmp_path):
+    from tearsheet.metrics.segmentation import segment_by_instrument
+    from tearsheet.report.render import render_report
+
+    trades, eq, metrics = minimal_report_inputs
+    instrument_trades = [dict(t) for t in trades]
+    instrument_trades[0]["symbol"] = "MESM26_FUT_CME"
+    instrument_trades[1]["symbol"] = "MNQM26_FUT_CME"
+    instrument_trades[2]["symbol"] = "MNQM26_FUT_CME"
+
+    out = tmp_path / "test_report.html"
+    render_report(
+        instrument_trades,
+        eq,
+        metrics,
+        out,
+        source_file="test.txt",
+        segmentation={"by_instrument": segment_by_instrument(instrument_trades)},
+    )
+    html = out.read_text(encoding="utf-8")
+
+    assert "By Instrument" in html
+    assert "MESM26_FUT_CME" in html
+    assert "MNQM26_FUT_CME" in html
+
+
 def test_render_html_contains_monthly_summary(minimal_report_inputs, tmp_path):
     from tearsheet.metrics.monthly_summary import compute_monthly_summary
     from tearsheet.report.render import render_report
@@ -105,6 +131,43 @@ def test_render_html_contains_monthly_summary(minimal_report_inputs, tmp_path):
     assert "summary-row-year" in html
     assert "summary-row-quarter" in html
     assert "summary-row-month" in html
+
+
+def test_render_html_contains_benchmark_alpha_and_equity_overlay(minimal_report_inputs, tmp_path):
+    from tearsheet.report.render import render_report
+
+    trades, eq, metrics = minimal_report_inputs
+    out = tmp_path / "test_report.html"
+    render_report(
+        trades,
+        eq,
+        metrics,
+        out,
+        source_file="test.txt",
+        benchmark_data={
+            "ticker": "SPY",
+            "dates": ["2026-04-09", "2026-04-10"],
+            "normalized": [100.0, 101.2],
+            "total_return_pct": 1.2,
+        },
+        benchmark_metrics={
+            "strategy_total_return_pct": 1.5,
+            "benchmark_total_return_pct": 1.2,
+            "alpha": 0.3,
+            "beta": 0.8,
+            "alpha_annualized": 0.12,
+            "correlation": 0.65,
+            "ticker": "SPY",
+        },
+    )
+    html = out.read_text(encoding="utf-8")
+
+    assert "Benchmark Comparison" in html
+    assert "S&amp;P 500 Return (SPY)" in html
+    assert "Returns" in html
+    assert "0.30%" in html
+    assert "1.50%" in html
+    assert "1.20%" in html
 
 
 def test_metrics_keys_present(minimal_report_inputs):

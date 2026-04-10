@@ -37,6 +37,23 @@ def test_long_win_count(enriched_trades):
     assert expected_wins >= 0  # sanity; real value depends on actual P&L signs
 
 
+def test_instrument_segmentation_uses_symbol_values(three_trades):
+    from tearsheet.metrics.segmentation import segment_by_instrument
+
+    instrument_trades = [dict(t) for t in three_trades]
+    instrument_trades[0]["symbol"] = "MESM26_FUT_CME"
+    instrument_trades[1]["symbol"] = "MNQM26_FUT_CME"
+    instrument_trades[2]["symbol"] = "MNQM26_FUT_CME"
+
+    segs = segment_by_instrument(instrument_trades)
+
+    assert list(segs.keys()) == ["MESM26_FUT_CME", "MNQM26_FUT_CME"]
+    assert segs["MESM26_FUT_CME"]["n_trades"] == 1
+    assert segs["MESM26_FUT_CME"]["total_gross_pnl"] == 52.5
+    assert segs["MNQM26_FUT_CME"]["n_trades"] == 2
+    assert segs["MNQM26_FUT_CME"]["total_gross_pnl"] == -115.0
+
+
 def test_single_note_tag(enriched_trades):
     from tearsheet.metrics.segmentation import segment_by_note
     segs = segment_by_note(enriched_trades)

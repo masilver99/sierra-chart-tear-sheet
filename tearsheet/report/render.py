@@ -528,6 +528,109 @@ def _outcome_mix_chart(trades: list[dict]) -> str:
     return _donut_chart(counts, ["#3fb950", "#f85149", "#8b949e"], "No outcome data.")
 
 
+def _duration_profit_scatter_chart(trades: list[dict]) -> str:
+    """Scatter plot of time-in-trade (minutes) vs gross P&L with ±1σ / ±2σ bands on both axes."""
+    import pandas as pd
+
+    points = []
+    for t in trades:
+        if t.get("entry_time") is None or t.get("exit_time") is None:
+            continue
+        if t.get("gross_pnl") is None:
+            continue
+        try:
+            dur_min = (
+                pd.Timestamp(t["exit_time"]) - pd.Timestamp(t["entry_time"])
+            ).total_seconds() / 60.0
+        except Exception:
+            continue
+        if dur_min < 0:
+            continue
+        points.append({"dur": dur_min, "pnl": float(t["gross_pnl"]), "tid": t.get("trade_id", "")})
+
+    if not points:
+        return _empty_chart("No duration / P&L data available.")
+
+    durs = [p["dur"] for p in points]
+    pnls = [p["pnl"] for p in points]
+    n = len(points)
+
+    def _stats(vals):
+        mu = sum(vals) / len(vals)
+        sigma = math.sqrt(sum((v - mu) ** 2 for v in vals) / max(len(vals) - 1, 1))
+        return mu, sigma
+
+    mu_d, sig_d = _stats(durs)
+    mu_p, sig_p = _stats(pnls)
+
+    colors = ["#3fb950" if p >= 0 else "#f85149" for p in pnls]
+
+    fig = go.Figure()
+
+    # ±1σ / ±2σ shaded bands for P&L (horizontal)
+    for mult, alpha in ((2, 0.07), (1, 0.13)):
+        fig.add_hrect(
+            y0=mu_p - mult * sig_p,
+            y1=mu_p + mult * sig_p,
+            fillcolor=f"rgba(88,166,255,{alpha})",
+            line_width=0,
+            layer="below",
+        )
+
+    # ±1σ / ±2σ shaded bands for duration (vertical)
+    for mult, alpha in ((2, 0.07), (1, 0.13)):
+        fig.add_vrect(
+            x0=max(0, mu_d - mult * sig_d),
+            x1=mu_d + mult * sig_d,
+            fillcolor=f"rgba(210,153,34,{alpha})",
+            line_width=0,
+            layer="below",
+        )
+
+    # Mean reference lines
+    fig.add_hline(y=mu_p, line_color="#58a6ff", line_width=1, line_dash="dash")
+    fig.add_vline(x=mu_d, line_color="#d29922", line_width=1, line_dash="dash")
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
+
+    fig.add_trace(go.Scatter(
+        x=durs,
+        y=pnls,
+        mode="markers",
+        marker=dict(color=colors, size=7, opacity=0.8, line=dict(width=0.5, color="#0d1117")),
+        text=[f"T{p['tid']}: {p['dur']:.1f}m / ${p['pnl']:,.2f}" for p in points],
+        hovertemplate="%{text}<extra></extra>",
+        name="Trades",
+    ))
+
+    annotation_text = (
+        f"<b>Time in Trade</b><br>"
+        f"μ={mu_d:.1f}m  σ={sig_d:.1f}m<br>"
+        f"<b>P&amp;L</b><br>"
+        f"μ=${mu_p:,.2f}  σ=${sig_p:,.2f}<br>"
+        f"n={n}"
+    )
+    fig.add_annotation(
+        x=0.99, y=0.98,
+        xref="paper", yref="paper",
+        xanchor="right", yanchor="top",
+        showarrow=False,
+        align="right",
+        bgcolor="rgba(13,17,23,0.80)",
+        bordercolor="#30363d",
+        borderwidth=1,
+        font=dict(size=10, color="#c9d1d9"),
+        text=annotation_text,
+    )
+
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        xaxis_title="Time in Trade (minutes)",
+        yaxis_title="Gross P&L ($)",
+        showlegend=False,
+    )
+    return _div(fig)
+
+
 # ---------------------------------------------------------------------------
 # Main render function
 # ---------------------------------------------------------------------------
@@ -589,6 +692,7 @@ def render_report(
         r_multiple_chart=_r_multiple_chart(trades),
         returns_chart=_returns_chart(equity_curve, benchmark_data),
         pnl_distribution_chart=_trade_pnl_distribution_chart(trades),
+        duration_profit_scatter_chart=_duration_profit_scatter_chart(trades),
         timing_heatmap_chart=_timing_heatmap(trades),
         direction_mix_chart=_direction_mix_chart(trades),
         session_mix_chart=_session_mix_chart(trades),
