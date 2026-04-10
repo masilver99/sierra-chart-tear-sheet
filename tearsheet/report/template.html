@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trade Tear Sheet — {{ report_date }}</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --red: #f85149;
+      --blue: #58a6ff;
+      --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.5; }
+    header { padding: 24px 32px 16px; border-bottom: 1px solid var(--border); }
+    header h1 { font-size: 22px; color: var(--blue); }
+    header p  { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    main { padding: 24px 32px; }
+    h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 28px 0 12px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+    .kpi .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+    .kpi .value { font-size: 20px; font-weight: 600; margin-top: 2px; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+    .chart-wrapper { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th { background: var(--surface); border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: left; color: var(--muted); font-weight: 500; }
+    tbody tr:nth-child(even) { background: rgba(255,255,255,.03); }
+    tbody td { padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,.04); }
+    .win { color: var(--green); }
+    .loss { color: var(--red); }
+    .seg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .seg-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
+    .seg-card h3 { font-size: 12px; color: var(--blue); text-transform: uppercase; margin-bottom: 8px; }
+    .seg-card table { font-size: 11px; }
+    footer { padding: 16px 32px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+    /* Phase 4: Calendar */
+    .cal-container { margin-bottom: 16px; }
+    .cal-year-header { display: flex; align-items: center; gap: 16px; padding: 8px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .cal-year-title { font-size: 18px; font-weight: 700; color: var(--blue); }
+    .cal-muted { color: var(--muted); font-size: 11px; }
+    .cal-month-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 20px; }
+    .cal-month-box { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; cursor: pointer; transition: border-color .15s; min-height: 80px; }
+    .cal-month-box:hover { border-color: var(--blue); }
+    .cal-month-box.empty { cursor: default; opacity: .35; }
+    .cal-month-box.empty:hover { border-color: var(--border); }
+    .cal-month-box.profitable { border-left: 3px solid var(--green); }
+    .cal-month-box.unprofitable { border-left: 3px solid var(--red); }
+    .cal-mname { font-size: 13px; font-weight: 600; }
+    .cal-mpnl { font-size: 15px; font-weight: 700; margin: 4px 0 2px; }
+    .cal-mmeta { font-size: 11px; color: var(--muted); }
+    .cal-nav { display: flex; align-items: center; gap: 16px; padding: 8px 0; margin-bottom: 12px; flex-wrap: wrap; }
+    .cal-back-btn { background: var(--surface); border: 1px solid var(--border); color: var(--blue); border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+    .cal-back-btn:hover { border-color: var(--blue); }
+    .cal-month-title { font-size: 16px; font-weight: 700; }
+    .cal-day-table { width: 100%; border-collapse: separate; border-spacing: 3px; margin-bottom: 8px; }
+    .cal-day-table th { text-align: center; font-size: 11px; color: var(--muted); padding: 4px; }
+    .cal-day-empty { background: transparent; height: 70px; }
+    .cal-day-cell { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; width: 14.28%; min-height: 64px; vertical-align: top; padding: 6px; }
+    .cal-day-cell.trading { cursor: pointer; }
+    .cal-day-cell.trading:hover { border-color: var(--blue); }
+    .cal-day-cell.trading.active { border-color: var(--blue); background: rgba(88,166,255,.08); }
+    .cal-day-cell.inactive { opacity: .25; cursor: default; }
+    .cal-day-cell.win { border-left: 2px solid var(--green); }
+    .cal-day-cell.loss { border-left: 2px solid var(--red); }
+    .cal-daynum { font-size: 11px; font-weight: 600; color: var(--muted); }
+    .cal-daypnl { font-size: 12px; font-weight: 700; margin: 2px 0; }
+    .cal-daymeta { font-size: 10px; color: var(--muted); }
+    .cal-day-trades-header { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px 6px 0 0; font-size: 13px; margin-top: 8px; }
+    .cal-trades-scroll { overflow-x: auto; border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px; }
+    .cal-trade-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 1200px; }
+    .cal-trade-table thead th { background: var(--surface); border-bottom: 1px solid var(--border); padding: 5px 8px; text-align: left; color: var(--muted); white-space: nowrap; }
+    .cal-trade-table tbody tr:nth-child(even) { background: rgba(255,255,255,.02); }
+    .cal-trade-table tbody td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,.03); }
+    .section-toggle { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 11px; margin-left: 8px; vertical-align: middle; }
+    .section-toggle:hover { color: var(--text); border-color: var(--text); }
+  </style>
+  {{ plotly_js | safe }}
+</head>
+<body>
+<header>
+  <h1>📊 Trade Tear Sheet</h1>
+  <p>Generated {{ report_date }} &nbsp;·&nbsp; {{ source_file }} &nbsp;·&nbsp; {{ metrics.n_trades }} completed trades</p>
+</header>
+<main>
+  <h2>Key Performance Indicators</h2>
+  <div class="kpi-grid">
+    {% set gp = metrics.total_gross_pnl %}
+    <div class="kpi"><div class="label">Gross P&amp;L</div><div class="value {{ 'pos' if gp >= 0 else 'neg' }}">${{ "{:,.2f}".format(gp) }}</div></div>
+    {% set np = metrics.total_net_pnl %}
+    <div class="kpi"><div class="label">Net P&amp;L</div><div class="value {{ 'pos' if np >= 0 else 'neg' }}">${{ "{:,.2f}".format(np) }}</div></div>
+    <div class="kpi"><div class="label">Total Fees</div><div class="value neg">${{ "{:,.2f}".format(metrics.total_fees) }}</div></div>
+    <div class="kpi"><div class="label">Win Rate</div><div class="value">{{ "{:.1f}%".format(metrics.win_rate * 100) }}</div></div>
+    <div class="kpi"><div class="label">Avg Win</div><div class="value pos">${{ "{:,.2f}".format(metrics.avg_win) }}</div></div>
+    <div class="kpi"><div class="label">Avg Loss</div><div class="value neg">${{ "{:,.2f}".format(metrics.avg_loss) }}</div></div>
+    <div class="kpi"><div class="label">Profit Factor</div><div class="value">{{ "{:.2f}".format(metrics.profit_factor) if metrics.profit_factor is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Expectancy</div><div class="value {{ 'pos' if metrics.expectancy >= 0 else 'neg' }}">${{ "{:,.2f}".format(metrics.expectancy) }}</div></div>
+    <div class="kpi"><div class="label">SQN</div><div class="value">{{ "{:.2f}".format(metrics.sqn) if metrics.sqn is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Max Drawdown</div><div class="value neg">-${{ "{:,.2f}".format(metrics.max_drawdown) }}</div></div>
+    <div class="kpi"><div class="label">Sharpe</div><div class="value">{{ "{:.2f}".format(metrics.sharpe_ratio) if metrics.sharpe_ratio is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Sortino</div><div class="value">{{ "{:.2f}".format(metrics.sortino_ratio) if metrics.sortino_ratio is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Calmar</div><div class="value">{{ "{:.2f}".format(metrics.calmar_ratio) if metrics.calmar_ratio is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Ulcer Index</div><div class="value">{{ "{:.4f}".format(metrics.ulcer_index) if metrics.ulcer_index is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Consec. Wins</div><div class="value">{{ metrics.max_consec_wins }}</div></div>
+    <div class="kpi"><div class="label">Consec. Losses</div><div class="value">{{ metrics.max_consec_losses }}</div></div>
+  </div>
+
+  <h2>Extended Metrics</h2>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">Biggest Winner</div><div class="value pos">{{ "${:,.2f}".format(metrics.biggest_winner) if metrics.biggest_winner is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Biggest Loser</div><div class="value neg">{{ "${:,.2f}".format(metrics.biggest_loser) if metrics.biggest_loser is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Payoff Ratio</div><div class="value">{{ "{:.2f}".format(metrics.payoff_ratio) if metrics.payoff_ratio is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Gain-to-Pain</div><div class="value">{{ "{:.2f}".format(metrics.gain_to_pain) if metrics.gain_to_pain is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Avg Duration</div><div class="value">{{ metrics.avg_duration_s | format_duration }}</div></div>
+    <div class="kpi"><div class="label">Avg Win Duration</div><div class="value">{{ metrics.avg_duration_winners_s | format_duration }}</div></div>
+    <div class="kpi"><div class="label">Avg Loss Duration</div><div class="value">{{ metrics.avg_duration_losers_s | format_duration }}</div></div>
+    <div class="kpi"><div class="label">Shortest Trade</div><div class="value">{{ metrics.shortest_trade_s | format_duration }}</div></div>
+    <div class="kpi"><div class="label">Longest Trade</div><div class="value">{{ metrics.longest_trade_s | format_duration }}</div></div>
+    <div class="kpi"><div class="label">Avg MFE</div><div class="value pos">{{ "${:,.2f}".format(metrics.avg_mfe) if metrics.avg_mfe is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Avg MAE</div><div class="value neg">{{ "${:,.2f}".format(metrics.avg_mae) if metrics.avg_mae is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">MFE Capture</div><div class="value">{{ "{:.1f}%".format(metrics.mfe_capture_pct * 100) if metrics.mfe_capture_pct is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Long Count</div><div class="value">{{ metrics.long_count if metrics.long_count is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Short Count</div><div class="value">{{ metrics.short_count if metrics.short_count is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Long Win Rate</div><div class="value">{{ "{:.1f}%".format(metrics.long_win_rate * 100) if metrics.long_win_rate is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Short Win Rate</div><div class="value">{{ "{:.1f}%".format(metrics.short_win_rate * 100) if metrics.short_win_rate is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Trading Days</div><div class="value">{{ metrics.trading_days if metrics.trading_days is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">% Profitable Days</div><div class="value {{ 'pos' if metrics.pct_profitable_days and metrics.pct_profitable_days >= 0.5 else 'neg' }}">{{ "{:.1f}%".format(metrics.pct_profitable_days * 100) if metrics.pct_profitable_days is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Recovery Factor</div><div class="value {{ 'pos' if metrics.recovery_factor and metrics.recovery_factor >= 0 else 'neg' }}">{{ "{:.2f}".format(metrics.recovery_factor) if metrics.recovery_factor is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Win Rate (BE)</div><div class="value">{{ "{:.1f}%".format(metrics.win_rate_be * 100) if metrics.win_rate_be is not none else "—" }}</div></div>
+  </div>
+
+  <h2>Consistency</h2>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">% Profitable Days</div>
+      <div class="value {{ 'pos' if segmentation and segmentation.pct_profitable_days and segmentation.pct_profitable_days >= 0.5 else 'neg' if segmentation and segmentation.pct_profitable_days is not none else '' }}">
+      {{ "{:.1f}%".format(segmentation.pct_profitable_days * 100) if segmentation and segmentation.pct_profitable_days is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">% Profitable Weeks</div>
+      <div class="value {{ 'pos' if segmentation and segmentation.pct_profitable_weeks and segmentation.pct_profitable_weeks >= 0.5 else 'neg' if segmentation and segmentation.pct_profitable_weeks is not none else '' }}">
+      {{ "{:.1f}%".format(segmentation.pct_profitable_weeks * 100) if segmentation and segmentation.pct_profitable_weeks is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">% Profitable Months</div>
+      <div class="value {{ 'pos' if segmentation and segmentation.pct_profitable_months and segmentation.pct_profitable_months >= 0.5 else 'neg' if segmentation and segmentation.pct_profitable_months is not none else '' }}">
+      {{ "{:.1f}%".format(segmentation.pct_profitable_months * 100) if segmentation and segmentation.pct_profitable_months is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Avg Trades / Day</div>
+      <div class="value">{{ "{:.1f}".format(metrics.avg_trades_per_day) if metrics.avg_trades_per_day is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Trading Days</div>
+      <div class="value">{{ metrics.trading_days if metrics.trading_days is not none else "—" }}</div></div>
+  </div>
+
+  {% if exec_metrics %}
+  <h2>Execution Quality</h2>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">Total Orders</div><div class="value">{{ exec_metrics.total_orders }}</div></div>
+    <div class="kpi"><div class="label">Fill Rate</div><div class="value">{{ "{:.1f}%".format(exec_metrics.fill_rate * 100) if exec_metrics.fill_rate is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Cancel Rate</div><div class="value">{{ "{:.1f}%".format(exec_metrics.cancel_rate * 100) if exec_metrics.cancel_rate is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Modify Rate</div><div class="value">{{ "{:.1f}%".format(exec_metrics.modify_rate * 100) if exec_metrics.modify_rate is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Avg Entry Chase</div><div class="value {{ 'neg' if exec_metrics.avg_entry_chase_pts and exec_metrics.avg_entry_chase_pts > 0 else 'pos' }}">{{ "{:.2f} pts".format(exec_metrics.avg_entry_chase_pts) if exec_metrics.avg_entry_chase_pts is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Avg Exit Chase</div><div class="value {{ 'neg' if exec_metrics.avg_exit_chase_pts and exec_metrics.avg_exit_chase_pts > 0 else 'pos' }}">{{ "{:.2f} pts".format(exec_metrics.avg_exit_chase_pts) if exec_metrics.avg_exit_chase_pts is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Max Entry Chase</div><div class="value">{{ "{:.2f} pts".format(exec_metrics.max_entry_chase_pts) if exec_metrics.max_entry_chase_pts is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Max Exit Chase</div><div class="value">{{ "{:.2f} pts".format(exec_metrics.max_exit_chase_pts) if exec_metrics.max_exit_chase_pts is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Avg Mods / Order</div><div class="value">{{ "{:.2f}".format(exec_metrics.avg_modifications_per_order) if exec_metrics.avg_modifications_per_order is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Pct Chased Entry</div><div class="value">{{ "{:.1f}%".format(exec_metrics.pct_chased_entry * 100) if exec_metrics.pct_chased_entry is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Pct Chased Exit</div><div class="value">{{ "{:.1f}%".format(exec_metrics.pct_chased_exit * 100) if exec_metrics.pct_chased_exit is not none else "—" }}</div></div>
+  </div>
+  {% endif %}
+
+  <h2>Equity Curve</h2>
+  <div class="chart-wrapper">{{ equity_chart | safe }}</div>
+
+  <h2>Drawdown</h2>
+  <div class="chart-wrapper">{{ drawdown_chart | safe }}</div>
+
+  <h2>Rolling Analytics ({{ rolling_window }}-Trade Window)</h2>
+  <div class="chart-wrapper">{{ rolling_chart | safe }}</div>
+
+  <h2>Daily P&amp;L</h2>
+  <div class="chart-wrapper">{{ daily_pnl_chart | safe }}</div>
+
+  <h2>MFE vs MAE</h2>
+  <div class="chart-wrapper">{{ mfe_chart | safe }}</div>
+
+  {% if has_r_multiples %}
+  <h2>R-Multiple Statistics</h2>
+  <div class="kpi-grid" style="margin-bottom:12px">
+    <div class="kpi"><div class="label">Avg R (r_avg)</div>
+      <div class="value {{ 'pos' if metrics.r_avg and metrics.r_avg >= 0 else 'neg' }}">
+        {{ "{:.2f}R".format(metrics.r_avg) if metrics.r_avg is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Median R</div>
+      <div class="value {{ 'pos' if metrics.r_median and metrics.r_median >= 0 else 'neg' }}">
+        {{ "{:.2f}R".format(metrics.r_median) if metrics.r_median is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Total R</div>
+      <div class="value {{ 'pos' if metrics.total_r and metrics.total_r >= 0 else 'neg' }}">
+        {{ "{:.2f}R".format(metrics.total_r) if metrics.total_r is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">% &ge; 1R</div><div class="value">
+        {{ "{:.1f}%".format(metrics.r_pct_1r * 100) if metrics.r_pct_1r is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">% &ge; 2R</div><div class="value">
+        {{ "{:.1f}%".format(metrics.r_pct_2r * 100) if metrics.r_pct_2r is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Positive R</div><div class="value pos">{{ metrics.positive_r_count }}</div></div>
+    <div class="kpi"><div class="label">Negative R</div><div class="value neg">{{ metrics.negative_r_count }}</div></div>
+  </div>
+  <div class="chart-wrapper">{{ r_multiple_chart | safe }}</div>
+  {% endif %}
+
+  {% if segmentation %}
+  <h2>Breakdowns</h2>
+  <div class="seg-grid">
+
+    {% if segmentation.by_direction %}
+    <div class="seg-card">
+      <h3>By Direction</h3>
+      <table>
+        <thead><tr><th>Dir</th><th>N</th><th>Win%</th><th>Gross P&amp;L</th><th>Avg P&amp;L</th></tr></thead>
+        <tbody>
+        {% for seg, s in segmentation.by_direction.items() %}
+          <tr>
+            <td>{{ seg }}</td><td>{{ s.n_trades }}</td>
+            <td>{{ "{:.1f}%".format(s.win_rate * 100) if s.win_rate is not none else "—" }}</td>
+            <td class="{{ 'win' if s.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.total_gross_pnl) }}</td>
+            <td class="{{ 'win' if s.avg_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.avg_pnl) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if segmentation.by_note %}
+    <div class="seg-card">
+      <h3>By Config Tag</h3>
+      <table>
+        <thead><tr><th>Note</th><th>N</th><th>Win%</th><th>Gross P&amp;L</th><th>Avg P&amp;L</th></tr></thead>
+        <tbody>
+        {% for seg, s in segmentation.by_note.items() %}
+          <tr>
+            <td>{{ seg or "(none)" }}</td><td>{{ s.n_trades }}</td>
+            <td>{{ "{:.1f}%".format(s.win_rate * 100) if s.win_rate is not none else "—" }}</td>
+            <td class="{{ 'win' if s.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.total_gross_pnl) }}</td>
+            <td class="{{ 'win' if s.avg_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.avg_pnl) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if segmentation.by_session %}
+    <div class="seg-card">
+      <h3>By Session</h3>
+      <table>
+        <thead><tr><th>Session</th><th>N</th><th>Win%</th><th>Gross P&amp;L</th><th>Avg P&amp;L</th></tr></thead>
+        <tbody>
+        {% for seg, s in segmentation.by_session.items() %}
+          <tr>
+            <td>{{ seg }}</td><td>{{ s.n_trades }}</td>
+            <td>{{ "{:.1f}%".format(s.win_rate * 100) if s.win_rate is not none else "—" }}</td>
+            <td class="{{ 'win' if s.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.total_gross_pnl) }}</td>
+            <td class="{{ 'win' if s.avg_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.avg_pnl) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  {% if segmentation and segmentation.by_date %}
+  {% endif %}
+
+  {% if calendar_data %}
+  <h2>P&amp;L Calendar</h2>
+  <p style="color:var(--muted);font-size:12px;margin:0 0 14px">Click a month to view daily breakdown. Click a day to see trades.</p>
+  <div id="cal-container" class="cal-container"></div>
+  <script>
+  (function(){
+    var calData = {{ calendar_data | safe_json }};
+    if (!calData || !calData.years) return;
+    var MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var ML = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var DH = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var state = {view:'year', year:null, month:null, activeDay:null};
+    var el = document.getElementById('cal-container');
+    function pad2(n){return ('0'+n).slice(-2);}
+    function fmtMoney(v){if(v==null)return '\u2014';var a=Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});return (v>=0?'+$':'-$')+a;}
+    function fmtDur(s){if(s==null)return '\u2014';s=Math.round(s);if(s<0)return '\u2014';if(s<60)return s+'s';var m=Math.floor(s/60),sc=s%60;if(s<3600)return m+'m '+sc+'s';var h=Math.floor(s/3600),rm=s%3600,mn=Math.floor(rm/60);return mn?h+'h '+mn+'m':h+'h';}
+    function fmtF(v,d){return v!=null?(+v).toFixed(d!=null?d:2):'\u2014';}
+    function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+    function render(){if(state.view==='year')renderYear();else renderMonth(state.year,state.month);}
+    window.calShowMonth=function(yr,m){state={view:'month',year:yr,month:m,activeDay:null};render();};
+    window.calBackToYear=function(){state={view:'year',year:null,month:null,activeDay:null};render();};
+    window.calToggleDay=function(ds){state.activeDay=(state.activeDay===ds)?null:ds;renderMonth(state.year,state.month);};
+    function renderYear(){
+      var years=Object.keys(calData.years).sort(),html='';
+      years.forEach(function(yr){
+        var yd=calData.years[yr],yc=yd.is_profitable?'pos':'neg';
+        html+='<div class="cal-year-header"><span class="cal-year-title">'+yr+'</span><span class="'+yc+'">'+fmtMoney(yd.net_pnl)+'</span><span class="cal-muted">'+yd.n_trades+' trades &middot; '+yd.n_days+' days</span></div>';
+        html+='<div class="cal-month-grid">';
+        for(var m=1;m<=12;m++){
+          var md=yd.months[String(m)];
+          if(md){var mc=md.is_profitable?'cal-month-box profitable':'cal-month-box unprofitable';html+='<div class="'+mc+'" onclick="calShowMonth(\''+yr+'\','+m+')"><div class="cal-mname">'+MS[m-1]+'</div><div class="cal-mpnl '+(md.is_profitable?'pos':'neg')+'">'+fmtMoney(md.net_pnl)+'</div><div class="cal-mmeta">'+md.n_trades+'T &middot; '+md.n_days+'d</div></div>';}
+          else{html+='<div class="cal-month-box empty"><div class="cal-mname">'+MS[m-1]+'</div></div>';}
+        }
+        html+='</div>';
+      });
+      el.innerHTML=html;
+    }
+    function renderMonth(yr,m){
+      var yd=calData.years[yr]||{},md=yd.months&&yd.months[String(m)];
+      var dim=new Date(+yr,+m,0).getDate(),fdow=new Date(+yr,m-1,1).getDay();
+      var hdr='<div class="cal-nav"><button class="cal-back-btn" onclick="calBackToYear()">&#8592; All Years</button><span class="cal-month-title">'+ML[m-1]+' '+yr+'</span>';
+      if(md)hdr+='<span class="'+(md.is_profitable?'pos':'neg')+'">'+fmtMoney(md.net_pnl)+' &nbsp;&middot;&nbsp; '+md.n_trades+' trades &nbsp;&middot;&nbsp; '+md.n_days+' days</span>';
+      hdr+='</div>';
+      var tbl='<table class="cal-day-table"><thead><tr>';
+      DH.forEach(function(d){tbl+='<th>'+d+'</th>';});
+      tbl+='</tr></thead><tbody>';
+      var cells=[];
+      for(var i=0;i<fdow;i++)cells.push(null);
+      for(var d=1;d<=dim;d++)cells.push(d);
+      while(cells.length%7!==0)cells.push(null);
+      for(var r=0;r<cells.length/7;r++){
+        tbl+='<tr>';
+        for(var c=0;c<7;c++){
+          var day=cells[r*7+c];
+          if(day==null){tbl+='<td class="cal-day-empty"></td>';}
+          else{
+            var ds=yr+'-'+pad2(m)+'-'+pad2(day),dd=calData.days[ds];
+            if(dd){var ia=state.activeDay===ds,dc='cal-day-cell trading '+(dd.is_profitable?'win':'loss')+(ia?' active':'');tbl+='<td class="'+dc+'" onclick="calToggleDay(\''+ds+'\')"><div class="cal-daynum">'+day+'</div><div class="cal-daypnl '+(dd.is_profitable?'pos':'neg')+'">'+fmtMoney(dd.net_pnl)+'</div><div class="cal-daymeta">'+dd.n_trades+'T</div></td>';}
+            else{tbl+='<td class="cal-day-cell inactive"><div class="cal-daynum">'+day+'</div></td>';}
+          }
+        }
+        tbl+='</tr>';
+      }
+      tbl+='</tbody></table>';
+      el.innerHTML=hdr+tbl+'<div id="cal-day-detail"></div>';
+      if(state.activeDay)renderDayDetail(state.activeDay);
+    }
+    function renderDayDetail(ds){
+      var dd=calData.days[ds],de=document.getElementById('cal-day-detail');
+      if(!dd||!de)return;
+      var dc=dd.is_profitable?'pos':'neg';
+      var html='<div class="cal-day-trades-header"><span>'+ds+'</span><span class="'+dc+'">'+fmtMoney(dd.net_pnl)+'</span><span class="cal-muted">'+dd.n_trades+' trade'+(dd.n_trades!==1?'s':'')+' &middot; '+(dd.win_rate*100).toFixed(0)+'% win</span></div>';
+      html+='<div class="cal-trades-scroll"><table class="cal-trade-table"><thead><tr><th>#</th><th>Sym</th><th>Dir</th><th>Entry</th><th>Exit</th><th>Dur</th><th>Qty</th><th>In</th><th>Out</th><th>Gross P&amp;L</th><th>Fees</th><th>Net P&amp;L</th><th>MFE</th><th>MAE</th><th>Exit</th><th>Note</th><th>E.Chase</th><th>X.Chase</th><th>Stop</th><th>Risk</th><th>R</th></tr></thead><tbody>';
+      dd.trades.forEach(function(t){
+        var tc=t.gross_pnl>=0?'win':'loss',rc=t.r_multiple!=null?(t.r_multiple>=0?'win':'loss'):'';
+        html+='<tr><td>'+t.trade_id+'</td><td>'+esc(t.symbol)+'</td><td>'+t.direction+'</td><td style="white-space:nowrap">'+esc(t.entry_time)+'</td><td style="white-space:nowrap">'+esc(t.exit_time)+'</td><td>'+fmtDur(t.duration_s)+'</td><td>'+t.total_qty+'</td><td>'+fmtF(t.avg_entry)+'</td><td>'+fmtF(t.avg_exit)+'</td><td class="'+tc+'">'+fmtMoney(t.gross_pnl)+'</td><td>-$'+fmtF(Math.abs(t.fees))+'</td><td class="'+(t.net_pnl>=0?'win':'loss')+'">'+fmtMoney(t.net_pnl)+'</td><td>'+fmtF(t.mfe)+'</td><td>'+fmtF(t.mae)+'</td><td>'+esc(t.exit_type||'\u2014')+'</td><td>'+esc(t.note||'\u2014')+'</td><td>'+(t.entry_chase_pts!=null?fmtF(t.entry_chase_pts)+'pt':'\u2014')+'</td><td>'+(t.exit_chase_pts!=null?fmtF(t.exit_chase_pts)+'pt':'\u2014')+'</td><td>'+(t.stop_price!=null?fmtF(t.stop_price):'\u2014')+'</td><td>'+(t.initial_risk!=null?fmtF(t.initial_risk,4):'\u2014')+'</td><td class="'+rc+'">'+(t.r_multiple!=null?fmtF(t.r_multiple)+'R':'\u2014')+'</td></tr>';
+      });
+      html+='</tbody></table></div>';
+      de.innerHTML=html;
+    }
+    render();
+  })();
+  </script>
+  {% endif %}
+
+  {% if segmentation %}
+  <h2>Period Breakdown</h2>
+  <div class="seg-grid">
+    {% if segmentation.by_day_of_week %}
+    <div class="seg-card">
+      <h3>By Day of Week</h3>
+      <table>
+        <thead><tr><th>Day</th><th>N</th><th>Gross P&amp;L</th><th>Win%</th><th>Expectancy</th></tr></thead>
+        <tbody>
+        {% for day, stats in segmentation.by_day_of_week.items() %}{% if stats.n_trades > 0 %}
+        <tr><td>{{ day }}</td><td>{{ stats.n_trades }}</td>
+          <td class="{{ 'win' if stats.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(stats.total_gross_pnl) }}</td>
+          <td>{{ "{:.0%}".format(stats.win_rate) }}</td>
+          <td class="{{ 'win' if stats.expectancy >= 0 else 'loss' }}">${{ "{:,.2f}".format(stats.expectancy) }}</td>
+        </tr>{% endif %}{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if segmentation.by_hour %}
+    <div class="seg-card">
+      <h3>By Entry Hour</h3>
+      <table>
+        <thead><tr><th>Hour</th><th>N</th><th>Gross P&amp;L</th><th>Win%</th><th>Expectancy</th></tr></thead>
+        <tbody>
+        {% for h, stats in segmentation.by_hour.items() %}
+        <tr><td>{{ "%02d:xx" % stats.hour }}</td><td>{{ stats.n_trades }}</td>
+          <td class="{{ 'win' if stats.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(stats.total_gross_pnl) }}</td>
+          <td>{{ "{:.0%}".format(stats.win_rate) }}</td>
+          <td class="{{ 'win' if stats.expectancy >= 0 else 'loss' }}">${{ "{:,.2f}".format(stats.expectancy) }}</td>
+        </tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if segmentation.by_week %}
+    <div class="seg-card">
+      <h3>Weekly P&amp;L</h3>
+      <table>
+        <thead><tr><th>Week</th><th>N</th><th>Gross P&amp;L</th><th>Win%</th></tr></thead>
+        <tbody>
+        {% for week, stats in segmentation.by_week.items() %}
+        <tr><td>{{ week }}</td><td>{{ stats.n_trades }}</td>
+          <td class="{{ 'win' if stats.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(stats.total_gross_pnl) }}</td>
+          <td>{{ "{:.0%}".format(stats.win_rate) }}</td>
+        </tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if segmentation.by_month %}
+    <div class="seg-card">
+      <h3>Monthly P&amp;L</h3>
+      <table>
+        <thead><tr><th>Month</th><th>N</th><th>Gross P&amp;L</th><th>Win%</th></tr></thead>
+        <tbody>
+        {% for month, stats in segmentation.by_month.items() %}
+        <tr><td>{{ month }}</td><td>{{ stats.n_trades }}</td>
+          <td class="{{ 'win' if stats.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(stats.total_gross_pnl) }}</td>
+          <td>{{ "{:.0%}".format(stats.win_rate) }}</td>
+        </tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if benchmark_metrics %}
+  <h2>Benchmark Comparison (SPY)</h2>
+  <div class="kpi-grid" style="margin-bottom:12px">
+    <div class="kpi"><div class="label">Strategy Return</div>
+      <div class="value {{ 'pos' if benchmark_metrics.strategy_total_return_pct >= 0 else 'neg' }}">
+      {{ "{:.2f}%".format(benchmark_metrics.strategy_total_return_pct * 100) }}</div></div>
+    <div class="kpi"><div class="label">SPY Return</div>
+      <div class="value {{ 'pos' if benchmark_metrics.benchmark_total_return_pct >= 0 else 'neg' }}">
+      {{ "{:.2f}%".format(benchmark_metrics.benchmark_total_return_pct * 100) }}</div></div>
+    {% if benchmark_metrics.beta is not none %}
+    <div class="kpi"><div class="label">Beta</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.beta) }}</div></div>
+    <div class="kpi"><div class="label">Alpha (ann.)</div>
+      <div class="value {{ 'pos' if benchmark_metrics.alpha_annualized >= 0 else 'neg' }}">
+      {{ "{:.2f}%".format(benchmark_metrics.alpha_annualized * 100) }}</div></div>
+    <div class="kpi"><div class="label">Correlation</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.correlation) }}</div></div>
+    {% endif %}
+  </div>
+  <div class="chart-wrapper">{{ benchmark_chart | safe }}</div>
+  {% endif %}
+
+  <h2>Trade Log <small style="font-weight:400;font-size:11px;color:var(--muted)">(drill down via calendar above)</small> <button class="section-toggle" onclick="var b=document.getElementById('trade-log-body'),s=b.style.display==='none';b.style.display=s?'block':'none';this.textContent=s?'&#9650; hide':'&#9660; show'">&#9660; show</button></h2>
+  <div id="trade-log-body" style="display:none">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Symbol</th><th>Dir</th>
+        <th>Entry Time</th><th>Exit Time</th><th>Duration</th>
+        <th>Qty</th><th>Avg Entry</th><th>Avg Exit</th>
+        <th>Gross P&amp;L</th><th>Fees</th><th>Net P&amp;L</th>
+        <th>MFE</th><th>MAE</th><th>Exit Type</th>
+        <th>Note</th><th>Entry Chase</th><th>Exit Chase</th>
+        <th>Init Stop</th><th>Risk (pts)</th><th>R-Multiple</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for t in trades %}
+      {% set cls = 'win' if t.gross_pnl >= 0 else 'loss' %}
+      {% if t.entry_time is not none and t.exit_time is not none %}
+        {% set dur_label = t.get('duration_s', '') %}
+      {% else %}
+        {% set dur_label = "—" %}
+      {% endif %}
+      <tr>
+        <td>{{ t.trade_id }}</td>
+        <td>{{ t.symbol }}</td>
+        <td>{{ t.direction }}</td>
+        <td>{{ t.entry_time }}</td>
+        <td>{{ t.exit_time }}</td>
+        <td>{{ t.get('duration_s') | format_duration }}</td>
+        <td>{{ t.total_qty }}</td>
+        <td>{{ "{:.2f}".format(t.avg_entry) }}</td>
+        <td>{{ "{:.2f}".format(t.avg_exit) }}</td>
+        <td class="{{ cls }}">${{ "{:,.2f}".format(t.gross_pnl) }}</td>
+        <td>${{ "{:,.2f}".format(t.fees) }}</td>
+        <td class="{{ 'win' if t.net_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(t.net_pnl) }}</td>
+        <td>{{ "{:,.2f}".format(t.mfe) }}</td>
+        <td>{{ "{:,.2f}".format(t.mae) }}</td>
+        <td>{{ t.exit_type }}</td>
+        <td>{{ t.note if t.note else "—" }}</td>
+        <td>{{ "{:.2f}".format(t.entry_chase_pts) if t.get('entry_chase_pts') is not none else "—" }}</td>
+        <td>{{ "{:.2f}".format(t.exit_chase_pts) if t.get('exit_chase_pts') is not none else "—" }}</td>
+        <td>{{ "{:.2f}".format(t.stop_price) if t.get('stop_price') is not none else "—" }}</td>
+        <td>{{ "{:.4f}".format(t.initial_risk) if t.get('initial_risk') is not none else "—" }}</td>
+        <td class="{{ 'win' if t.get('r_multiple') is not none and t.r_multiple >= 0 else 'loss' if t.get('r_multiple') is not none else '' }}">{{ "{:.2f}R".format(t.r_multiple) if t.get('r_multiple') is not none else "—" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</main>
+<footer>Sierra Chart Trade Tear Sheet — Phase 5</footer>
+</body>
+</html>
