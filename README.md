@@ -11,5 +11,5 @@ Download the repo into a directory and from outside the directory run:
 ```
 python -m tearsheet --input [YourExportFileName.txt] --output report.html
 ```
-This will generate an html report similar to this: 
+This will generate an html report similar to this: [[samples\report.html]]
 
