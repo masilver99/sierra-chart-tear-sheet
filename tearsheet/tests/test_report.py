@@ -65,6 +65,32 @@ def test_render_html_contains_chart_divs(minimal_report_inputs, tmp_path):
     assert 'id="' in html
 
 
+def test_render_html_contains_monthly_summary(minimal_report_inputs, tmp_path):
+    from tearsheet.metrics.monthly_summary import compute_monthly_summary
+    from tearsheet.report.render import render_report
+
+    trades, eq, metrics = minimal_report_inputs
+    out = tmp_path / "test_report.html"
+    render_report(
+        trades,
+        eq,
+        metrics,
+        out,
+        source_file="test.txt",
+        monthly_summary=compute_monthly_summary(trades),
+    )
+    html = out.read_text(encoding="utf-8")
+    assert "Period Summary" in html
+    assert "Tax Rate (%)" in html
+    assert "Estimated Taxes" in html
+    assert 'value="24"' in html
+    assert "toggleSummaryRow" in html
+    assert "period-summary-effective-rate" in html
+    assert "summary-row-year" in html
+    assert "summary-row-quarter" in html
+    assert "summary-row-month" in html
+
+
 def test_metrics_keys_present(minimal_report_inputs):
     _, _, metrics = minimal_report_inputs
     required = {

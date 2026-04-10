@@ -11,6 +11,8 @@ from tearsheet.normalize.orders import normalize_orders
 from tearsheet.recon.trades import reconstruct_trades, enrich_trades
 from tearsheet.recon.equity import build_equity_curve, detect_cash_flows, adjust_equity_curve
 from tearsheet.metrics.performance import compute_metrics
+from tearsheet.metrics.monthly_summary import compute_monthly_summary
+from tearsheet.metrics.sc_statistics import compute_sc_statistics
 from tearsheet.metrics.execution import compute_execution_metrics
 from tearsheet.metrics.segmentation import (
     segment_by_direction, segment_by_note, segment_by_session,
@@ -167,6 +169,10 @@ def run(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
     adjust_equity_curve(equity_curve, cash_flows)
     metrics = compute_metrics(enriched_trades, equity_curve)
 
+    monthly_summary = compute_monthly_summary(enriched_trades)
+
+    sc_statistics = compute_sc_statistics(enriched_trades)
+
     exec_metrics = compute_execution_metrics(enriched_trades, orders)
 
     rolling_metrics = compute_rolling_metrics(enriched_trades, window=20)
@@ -222,6 +228,8 @@ def run(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
         benchmark_metrics=benchmark_metrics,
         calendar_data=calendar_data,
         cash_flows=cash_flows,
+        monthly_summary=monthly_summary,
+        sc_statistics=sc_statistics,
     )
 
     print(f"[tearsheet] {len(enriched_trades)} trades processed → {output_path}")
@@ -235,4 +243,6 @@ def run(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
         "benchmark_data": benchmark_data,
         "benchmark_metrics": benchmark_metrics,
         "calendar_data": calendar_data,
+        "monthly_summary": monthly_summary,
+        "sc_statistics": sc_statistics,
     }

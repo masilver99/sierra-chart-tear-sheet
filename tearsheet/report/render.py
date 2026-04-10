@@ -319,6 +319,8 @@ def render_report(
     benchmark_metrics: dict[str, Any] | None = None,
     calendar_data: dict[str, Any] | None = None,
     cash_flows: list[dict[str, Any]] | None = None,
+    monthly_summary: dict[str, Any] | None = None,
+    sc_statistics: dict[str, Any] | None = None,
 ) -> None:
     """Render the tear sheet HTML to *output_path*."""
     env = Environment(loader=FileSystemLoader(str(_TEMPLATE_DIR)), autoescape=False)
@@ -351,6 +353,8 @@ def render_report(
         benchmark_metrics=benchmark_metrics,
         calendar_data=calendar_data,
         plotly_js=plotly_js,
+        monthly_summary=monthly_summary,
+        sc_statistics=sc_statistics,
     )
 
     Path(output_path).write_text(html, encoding="utf-8")
