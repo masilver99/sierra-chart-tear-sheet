@@ -11,5 +11,5 @@ Download the repo into a directory and from outside the directory run:
 ```
 python -m tearsheet --input [YourExportFileName.txt] --output report.html
 ```
-This will generate an html report similar to this: [samples\report.html]
+This will generate an html report similar to this: [samples\report.html](https://htmlpreview.github.io/masilver99/sierra-chart-tear-sheet/refs/heads/main/samples/report.html)
 
