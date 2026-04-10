@@ -385,6 +385,60 @@
   <h2 id="sec-returns">Returns</h2>
   <div class="chart-wrapper">{{ returns_chart | safe }}</div>
 
+    {% if benchmark_metrics %}
+  <h2 id="sec-benchmark">Benchmark Comparison (S&amp;P 500 / {{ benchmark_metrics.ticker or "SPY" }})</h2>
+  <div class="kpi-grid" style="margin-bottom:12px">
+    <div class="kpi">
+      <div class="label kpi-label-row">Strategy Return<span class="kpi-help"><a href="https://www.nerdwallet.com/investing/learn/average-stock-market-return" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">Cumulative return of the strategy over the period. The market historical average is ~10% annually. Active traders typically target 15–35%; above 35% is exceptional.</span></span></div>
+      <div class="value {{ 'pos' if benchmark_metrics.strategy_total_return_pct >= 0 else 'neg' }}">
+      {{ "{:.2f}%".format(benchmark_metrics.strategy_total_return_pct) }}</div>
+      {% set _sr_min = -20.0 %}
+      {% set _sr_max = 100.0 %}
+      {% if benchmark_metrics.strategy_total_return_pct < _sr_min %}{% set _sr_clamped = _sr_min %}{% elif benchmark_metrics.strategy_total_return_pct > _sr_max %}{% set _sr_clamped = _sr_max %}{% else %}{% set _sr_clamped = benchmark_metrics.strategy_total_return_pct %}{% endif %}
+      {% set _sr_pct = ((_sr_clamped - _sr_min) / 120.0 * 100) | round(1) %}
+      {% if benchmark_metrics.strategy_total_return_pct < 0 %}{% set _sr_tier = "Losing" %}
+      {% elif benchmark_metrics.strategy_total_return_pct < 10 %}{% set _sr_tier = "Below Market" %}
+      {% elif benchmark_metrics.strategy_total_return_pct < 20 %}{% set _sr_tier = "Market Rate" %}
+      {% elif benchmark_metrics.strategy_total_return_pct < 35 %}{% set _sr_tier = "Strong" %}
+      {% else %}{% set _sr_tier = "Exceptional" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _sr_pct }}%"></div></div>
+        <div class="kpi-scale-bar strategy-return-scale-bar"></div>
+        <div class="kpi-tier">{{ _sr_tier }}</div>
+      </div>
+    </div>
+    <div class="kpi"><div class="label">S&amp;P 500 Return ({{ benchmark_metrics.ticker or "SPY" }})</div>
+      <div class="value {{ 'pos' if benchmark_metrics.benchmark_total_return_pct >= 0 else 'neg' }}">
+      {{ "{:.2f}%".format(benchmark_metrics.benchmark_total_return_pct) }}</div></div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Alpha<span class="kpi-help"><a href="https://www.investopedia.com/terms/a/alpha.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">Alpha measures excess return vs. the benchmark. Zero means matching the benchmark; positive values indicate outperformance; above 4% is exceptional.</span></span></div>
+      <div class="value {{ 'pos' if benchmark_metrics.alpha >= 0 else 'neg' }}">
+      {{ "{:.2f}%".format(benchmark_metrics.alpha) }}</div>
+      {% if benchmark_metrics.alpha < -2 %}{% set _alpha_clamped = -2.0 %}{% elif benchmark_metrics.alpha > 6 %}{% set _alpha_clamped = 6.0 %}{% else %}{% set _alpha_clamped = benchmark_metrics.alpha %}{% endif %}
+      {% set _alpha_pct = ((_alpha_clamped + 2) / 8.0 * 100) | round(1) %}
+      {% if benchmark_metrics.alpha < 0 %}{% set _alpha_tier = "Underperform" %}
+      {% elif benchmark_metrics.alpha < 0.5 %}{% set _alpha_tier = "Average" %}
+      {% elif benchmark_metrics.alpha < 3 %}{% set _alpha_tier = "Good" %}
+      {% elif benchmark_metrics.alpha < 4 %}{% set _alpha_tier = "Very Good" %}
+      {% else %}{% set _alpha_tier = "Exceptional" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _alpha_pct }}%"></div></div>
+        <div class="kpi-scale-bar alpha-scale-bar"></div>
+        <div class="kpi-tier">{{ _alpha_tier }}</div>
+      </div>
+    </div>
+    {% if benchmark_metrics.beta is not none %}
+    <div class="kpi"><div class="label">Beta</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.beta) }}</div></div>
+    <div class="kpi"><div class="label">Alpha (ann.)</div>
+      <div class="value {{ 'pos' if benchmark_metrics.alpha_annualized >= 0 else 'neg' }}">
+      {{ "{:.2f}%".format(benchmark_metrics.alpha_annualized * 100) }}</div></div>
+    <div class="kpi"><div class="label">Correlation</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.correlation) }}</div></div>
+    {% endif %}
+  </div>
+  <div class="chart-wrapper"></div>
+  {% endif %}
+
+
   <h2 id="sec-drawdown">Drawdown</h2>
   <div class="chart-wrapper">{{ drawdown_chart | safe }}</div>
 
@@ -790,58 +844,6 @@
   </div>
   {% endif %}
 
-  {% if benchmark_metrics %}
-  <h2 id="sec-benchmark">Benchmark Comparison (S&amp;P 500 / {{ benchmark_metrics.ticker or "SPY" }})</h2>
-  <div class="kpi-grid" style="margin-bottom:12px">
-    <div class="kpi">
-      <div class="label kpi-label-row">Strategy Return<span class="kpi-help"><a href="https://www.nerdwallet.com/investing/learn/average-stock-market-return" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">Cumulative return of the strategy over the period. The market historical average is ~10% annually. Active traders typically target 15–35%; above 35% is exceptional.</span></span></div>
-      <div class="value {{ 'pos' if benchmark_metrics.strategy_total_return_pct >= 0 else 'neg' }}">
-      {{ "{:.2f}%".format(benchmark_metrics.strategy_total_return_pct) }}</div>
-      {% set _sr_min = -20.0 %}
-      {% set _sr_max = 100.0 %}
-      {% if benchmark_metrics.strategy_total_return_pct < _sr_min %}{% set _sr_clamped = _sr_min %}{% elif benchmark_metrics.strategy_total_return_pct > _sr_max %}{% set _sr_clamped = _sr_max %}{% else %}{% set _sr_clamped = benchmark_metrics.strategy_total_return_pct %}{% endif %}
-      {% set _sr_pct = ((_sr_clamped - _sr_min) / 120.0 * 100) | round(1) %}
-      {% if benchmark_metrics.strategy_total_return_pct < 0 %}{% set _sr_tier = "Losing" %}
-      {% elif benchmark_metrics.strategy_total_return_pct < 10 %}{% set _sr_tier = "Below Market" %}
-      {% elif benchmark_metrics.strategy_total_return_pct < 20 %}{% set _sr_tier = "Market Rate" %}
-      {% elif benchmark_metrics.strategy_total_return_pct < 35 %}{% set _sr_tier = "Strong" %}
-      {% else %}{% set _sr_tier = "Exceptional" %}{% endif %}
-      <div class="kpi-scale-wrap">
-        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _sr_pct }}%"></div></div>
-        <div class="kpi-scale-bar strategy-return-scale-bar"></div>
-        <div class="kpi-tier">{{ _sr_tier }}</div>
-      </div>
-    </div>
-    <div class="kpi"><div class="label">S&amp;P 500 Return ({{ benchmark_metrics.ticker or "SPY" }})</div>
-      <div class="value {{ 'pos' if benchmark_metrics.benchmark_total_return_pct >= 0 else 'neg' }}">
-      {{ "{:.2f}%".format(benchmark_metrics.benchmark_total_return_pct) }}</div></div>
-    <div class="kpi">
-      <div class="label kpi-label-row">Alpha<span class="kpi-help"><a href="https://www.investopedia.com/terms/a/alpha.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">Alpha measures excess return vs. the benchmark. Zero means matching the benchmark; positive values indicate outperformance; above 4% is exceptional.</span></span></div>
-      <div class="value {{ 'pos' if benchmark_metrics.alpha >= 0 else 'neg' }}">
-      {{ "{:.2f}%".format(benchmark_metrics.alpha) }}</div>
-      {% if benchmark_metrics.alpha < -2 %}{% set _alpha_clamped = -2.0 %}{% elif benchmark_metrics.alpha > 6 %}{% set _alpha_clamped = 6.0 %}{% else %}{% set _alpha_clamped = benchmark_metrics.alpha %}{% endif %}
-      {% set _alpha_pct = ((_alpha_clamped + 2) / 8.0 * 100) | round(1) %}
-      {% if benchmark_metrics.alpha < 0 %}{% set _alpha_tier = "Underperform" %}
-      {% elif benchmark_metrics.alpha < 0.5 %}{% set _alpha_tier = "Average" %}
-      {% elif benchmark_metrics.alpha < 3 %}{% set _alpha_tier = "Good" %}
-      {% elif benchmark_metrics.alpha < 4 %}{% set _alpha_tier = "Very Good" %}
-      {% else %}{% set _alpha_tier = "Exceptional" %}{% endif %}
-      <div class="kpi-scale-wrap">
-        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _alpha_pct }}%"></div></div>
-        <div class="kpi-scale-bar alpha-scale-bar"></div>
-        <div class="kpi-tier">{{ _alpha_tier }}</div>
-      </div>
-    </div>
-    {% if benchmark_metrics.beta is not none %}
-    <div class="kpi"><div class="label">Beta</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.beta) }}</div></div>
-    <div class="kpi"><div class="label">Alpha (ann.)</div>
-      <div class="value {{ 'pos' if benchmark_metrics.alpha_annualized >= 0 else 'neg' }}">
-      {{ "{:.2f}%".format(benchmark_metrics.alpha_annualized * 100) }}</div></div>
-    <div class="kpi"><div class="label">Correlation</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.correlation) }}</div></div>
-    {% endif %}
-  </div>
-  <div class="chart-wrapper"></div>
-  {% endif %}
 
   {% if sc_statistics %}
   {%- macro scv(val, fmt='$', positive_class='pos', negative_class='neg') -%}

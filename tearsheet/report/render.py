@@ -7,11 +7,17 @@ import math
 from pathlib import Path
 from typing import Any
 
+import sys
+
 import plotly.graph_objects as go
 import plotly.io as pio
 from jinja2 import Environment, FileSystemLoader
 
-_TEMPLATE_DIR = Path(__file__).parent
+# When frozen by PyInstaller, __file__ is unreliable; use _MEIPASS instead.
+if getattr(sys, "frozen", False):
+    _TEMPLATE_DIR = Path(sys._MEIPASS) / "tearsheet" / "report"
+else:
+    _TEMPLATE_DIR = Path(__file__).parent
 _DARK = "plotly_dark"
 
 _CHART_LAYOUT = dict(
