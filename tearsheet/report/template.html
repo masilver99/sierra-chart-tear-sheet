@@ -30,6 +30,7 @@
     .pos { color: var(--green); }
     .neg { color: var(--red); }
     .chart-wrapper { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+    .chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     thead th { background: var(--surface); border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: left; color: var(--muted); font-weight: 500; }
     tbody tr:nth-child(even) { background: rgba(255,255,255,.03); }
@@ -276,6 +277,28 @@
 
   <h2 id="sec-mfe-mae">MFE vs MAE</h2>
   <div class="chart-wrapper">{{ mfe_chart | safe }}</div>
+
+  <h2 id="sec-distribution">Trade P&amp;L Distribution</h2>
+  <div class="chart-wrapper">{{ pnl_distribution_chart | safe }}</div>
+
+  <h2 id="sec-timing">Timing Heatmap</h2>
+  <div class="chart-wrapper">{{ timing_heatmap_chart | safe }}</div>
+
+  <h2 id="sec-mix">Trade Mix</h2>
+  <div class="chart-grid">
+    <div class="seg-card">
+      <h3>Direction Mix</h3>
+      {{ direction_mix_chart | safe }}
+    </div>
+    <div class="seg-card">
+      <h3>Session Mix</h3>
+      {{ session_mix_chart | safe }}
+    </div>
+    <div class="seg-card">
+      <h3>Outcome Mix</h3>
+      {{ outcome_mix_chart | safe }}
+    </div>
+  </div>
 
   {% if has_r_multiples %}
   <h2 id="sec-r-multiple">R-Multiple Statistics</h2>

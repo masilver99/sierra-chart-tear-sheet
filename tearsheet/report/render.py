@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import math
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,10 @@ def _safe_json(obj) -> str:
 
 def _div(fig: go.Figure) -> str:
     return pio.to_html(fig, full_html=False, include_plotlyjs=False, config={"responsive": True})
+
+
+def _empty_chart(message: str) -> str:
+    return f"<p style='padding:16px;color:#8b949e'>{message}</p>"
 
 
 # ---------------------------------------------------------------------------
@@ -302,6 +307,203 @@ def _benchmark_chart(equity_curve: list[dict], benchmark_data: dict | None) -> s
     return _div(fig)
 
 
+def _trade_pnl_distribution_chart(trades: list[dict]) -> str:
+    if not trades:
+        return _empty_chart("No trade data.")
+
+    pnls = [t["gross_pnl"] for t in trades if t.get("gross_pnl") is not None]
+    if not pnls:
+        return _empty_chart("No trade P&L data.")
+
+    mean = sum(pnls) / len(pnls)
+    median = sorted(pnls)[len(pnls) // 2] if len(pnls) % 2 == 1 else (
+        sorted(pnls)[len(pnls) // 2 - 1] + sorted(pnls)[len(pnls) // 2]
+    ) / 2.0
+    std_dev = 0.0
+    if len(pnls) > 1:
+        variance = sum((p - mean) ** 2 for p in pnls) / (len(pnls) - 1)
+        std_dev = math.sqrt(variance)
+
+    fig = go.Figure(go.Histogram(
+        x=pnls,
+        nbinsx=min(40, max(12, int(math.sqrt(len(pnls)) * 2))),
+        marker=dict(color="#58a6ff"),
+        opacity=0.85,
+        hovertemplate="P&L: %{x:.2f}<br>Trades: %{y}<extra></extra>",
+    ))
+    fig.update_layout(**_CHART_LAYOUT, xaxis_title="Gross P&L ($)", yaxis_title="Trades", bargap=0.05)
+    fig.add_vline(x=0, line_color="#30363d", line_width=1)
+    fig.add_vline(
+        x=mean,
+        line_color="#3fb950" if mean >= 0 else "#f85149",
+        line_width=2,
+    )
+    fig.add_vline(x=median, line_color="#d29922", line_width=2, line_dash="dot")
+    if std_dev > 0:
+        fig.add_vrect(
+            x0=mean - std_dev,
+            x1=mean + std_dev,
+            fillcolor="rgba(88,166,255,0.12)",
+            line_width=0,
+            layer="below",
+        )
+    fig.add_annotation(
+        x=0.01,
+        y=0.98,
+        xref="paper",
+        yref="paper",
+        showarrow=False,
+        align="left",
+        bgcolor="rgba(13,17,23,0.75)",
+        bordercolor="#30363d",
+        borderwidth=1,
+        font=dict(size=10, color="#c9d1d9"),
+        text=(
+            f"Mean: {mean:,.2f}<br>"
+            f"Median: {median:,.2f}<br>"
+            f"Std Dev: {std_dev:,.2f}"
+        ),
+    )
+    return _div(fig)
+
+
+def _timing_heatmap(trades: list[dict]) -> str:
+    if not trades:
+        return _empty_chart("No trade data.")
+
+    import pandas as pd
+
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    by_slot: dict[int, dict[int, list[float]]] = {d: {} for d in range(5)}
+    active_hours: set[int] = set()
+
+    for trade in trades:
+        entry_time = trade.get("entry_time")
+        if entry_time is None or trade.get("gross_pnl") is None:
+            continue
+        ts = pd.Timestamp(entry_time)
+        weekday = ts.weekday()
+        if weekday > 4:
+            continue
+        hour = ts.hour
+        by_slot.setdefault(weekday, {}).setdefault(hour, []).append(trade["gross_pnl"])
+        active_hours.add(hour)
+
+    if not active_hours:
+        return _empty_chart("No timing data.")
+
+    hours = sorted(active_hours)
+    z: list[list[float | None]] = []
+    customdata: list[list[list[float | int]]] = []
+
+    for weekday in range(5):
+        row: list[float | None] = []
+        custom_row: list[list[float | int]] = []
+        for hour in hours:
+            pnls = by_slot.get(weekday, {}).get(hour, [])
+            if pnls:
+                avg_pnl = sum(pnls) / len(pnls)
+                row.append(round(avg_pnl, 2))
+                custom_row.append([len(pnls), round(sum(pnls), 2)])
+            else:
+                row.append(None)
+                custom_row.append([0, 0.0])
+        z.append(row)
+        customdata.append(custom_row)
+
+    fig = go.Figure(go.Heatmap(
+        x=[f"{hour:02d}:00" for hour in hours],
+        y=day_names,
+        z=z,
+        customdata=customdata,
+        colorscale=[
+            [0.0, "#f85149"],
+            [0.5, "#30363d"],
+            [1.0, "#3fb950"],
+        ],
+        zmid=0,
+        colorbar=dict(title="Avg P&L"),
+        hovertemplate=(
+            "Day: %{y}<br>"
+            "Hour: %{x}<br>"
+            "Avg P&L: %{z:.2f}<br>"
+            "Trades: %{customdata[0]}<br>"
+            "Total P&L: %{customdata[1]:.2f}<extra></extra>"
+        ),
+    ))
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 320
+    fig.update_layout(**layout, xaxis_title="Entry hour", yaxis_title="Entry weekday")
+    return _div(fig)
+
+
+def _donut_chart(values: dict[str, int], colors: list[str], empty_message: str) -> str:
+    filtered = [(label, value) for label, value in values.items() if value > 0]
+    if not filtered:
+        return _empty_chart(empty_message)
+
+    labels = [label for label, _ in filtered]
+    counts = [value for _, value in filtered]
+    fig = go.Figure(go.Pie(
+        labels=labels,
+        values=counts,
+        hole=0.58,
+        marker=dict(colors=colors[:len(labels)]),
+        textinfo="label+percent",
+        hovertemplate="%{label}: %{value} trades (%{percent})<extra></extra>",
+        sort=False,
+    ))
+    layout = dict(_CHART_LAYOUT)
+    layout.update(margin=dict(l=12, r=12, t=8, b=8), height=260, showlegend=False)
+    fig.update_layout(**layout)
+    return _div(fig)
+
+
+def _direction_mix_chart(trades: list[dict]) -> str:
+    counts = {"Long": 0, "Short": 0}
+    for trade in trades:
+        direction = (trade.get("direction") or "").lower()
+        if direction == "long":
+            counts["Long"] += 1
+        elif direction == "short":
+            counts["Short"] += 1
+    return _donut_chart(counts, ["#58a6ff", "#d29922"], "No direction data.")
+
+
+def _session_mix_chart(trades: list[dict]) -> str:
+    import pandas as pd
+
+    counts = {"Open": 0, "Midday": 0, "Close": 0}
+    for trade in trades:
+        entry_time = trade.get("entry_time")
+        if entry_time is None:
+            continue
+        ts = pd.Timestamp(entry_time)
+        minutes = ts.hour * 60 + ts.minute
+        if minutes < 10 * 60 + 30:
+            counts["Open"] += 1
+        elif minutes < 14 * 60:
+            counts["Midday"] += 1
+        else:
+            counts["Close"] += 1
+    return _donut_chart(counts, ["#58a6ff", "#3fb950", "#f85149"], "No session data.")
+
+
+def _outcome_mix_chart(trades: list[dict]) -> str:
+    counts = {"Winners": 0, "Losers": 0, "Breakeven": 0}
+    for trade in trades:
+        pnl = trade.get("gross_pnl")
+        if pnl is None:
+            continue
+        if pnl > 0:
+            counts["Winners"] += 1
+        elif pnl < 0:
+            counts["Losers"] += 1
+        else:
+            counts["Breakeven"] += 1
+    return _donut_chart(counts, ["#3fb950", "#f85149", "#8b949e"], "No outcome data.")
+
+
 # ---------------------------------------------------------------------------
 # Main render function
 # ---------------------------------------------------------------------------
@@ -347,6 +549,11 @@ def render_report(
         rolling_chart=_rolling_expectancy_chart(rolling_metrics),
         r_multiple_chart=_r_multiple_chart(trades),
         benchmark_chart=_benchmark_chart(equity_curve, benchmark_data),
+        pnl_distribution_chart=_trade_pnl_distribution_chart(trades),
+        timing_heatmap_chart=_timing_heatmap(trades),
+        direction_mix_chart=_direction_mix_chart(trades),
+        session_mix_chart=_session_mix_chart(trades),
+        outcome_mix_chart=_outcome_mix_chart(trades),
         rolling_window=20,
         rolling_metrics=rolling_metrics,
         has_r_multiples=has_r_multiples,

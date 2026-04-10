@@ -65,6 +65,22 @@ def test_render_html_contains_chart_divs(minimal_report_inputs, tmp_path):
     assert 'id="' in html
 
 
+def test_render_html_contains_new_visual_sections(minimal_report_inputs, tmp_path):
+    from tearsheet.report.render import render_report
+
+    trades, eq, metrics = minimal_report_inputs
+    out = tmp_path / "test_report.html"
+    render_report(trades, eq, metrics, out, source_file="test.txt")
+    html = out.read_text(encoding="utf-8")
+
+    assert "Trade P&amp;L Distribution" in html
+    assert "Timing Heatmap" in html
+    assert "Trade Mix" in html
+    assert "Direction Mix" in html
+    assert "Session Mix" in html
+    assert "Outcome Mix" in html
+
+
 def test_render_html_contains_monthly_summary(minimal_report_inputs, tmp_path):
     from tearsheet.metrics.monthly_summary import compute_monthly_summary
     from tearsheet.report.render import render_report
