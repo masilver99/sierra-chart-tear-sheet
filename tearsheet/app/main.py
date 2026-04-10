@@ -15,7 +15,7 @@ from tearsheet.metrics.monthly_summary import compute_monthly_summary
 from tearsheet.metrics.sc_statistics import compute_sc_statistics
 from tearsheet.metrics.execution import compute_execution_metrics
 from tearsheet.metrics.segmentation import (
-    segment_by_direction, segment_by_note, segment_by_session,
+    segment_by_direction, segment_by_instrument, segment_by_note, segment_by_session,
     segment_by_date, segment_by_day_of_week, segment_by_week, segment_by_month,
     segment_by_hour,
     pct_profitable_periods,
@@ -185,6 +185,7 @@ def run(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
 
     segmentation = {
         "by_direction": segment_by_direction(enriched_trades),
+        "by_instrument": segment_by_instrument(enriched_trades),
         "by_note": segment_by_note(enriched_trades),
         "by_session": segment_by_session(enriched_trades),
         "by_date": by_date,
@@ -202,21 +203,20 @@ def run(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
     # Benchmark (only for multi-day data)
     benchmark_data = None
     benchmark_metrics = None
-    if metrics.get("total_trading_days", 0) and metrics["total_trading_days"] > 1:
-        exit_dates = sorted(set(
-            pd.Timestamp(t["exit_time"]).date()
-            for t in enriched_trades if t.get("exit_time")
-        ))
-        if len(exit_dates) >= 2:
-            benchmark_data = fetch_benchmark(exit_dates[0], exit_dates[-1])
-            if benchmark_data:
-                start_balance = equity_curve[0]["balance"] if equity_curve else 18000.0
-                daily_pnl: dict = {}
-                for t in enriched_trades:
-                    if t.get("exit_time"):
-                        d = pd.Timestamp(t["exit_time"]).date()
-                        daily_pnl[d] = daily_pnl.get(d, 0.0) + t["gross_pnl"]
-                benchmark_metrics = compute_benchmark_metrics(daily_pnl, start_balance, benchmark_data)
+    exit_dates = sorted(set(
+        pd.Timestamp(t["exit_time"]).date()
+        for t in enriched_trades if t.get("exit_time")
+    ))
+    if exit_dates:
+        benchmark_data = fetch_benchmark(exit_dates[0], exit_dates[-1])
+        if benchmark_data:
+            start_balance = equity_curve[0]["balance"] if equity_curve else 18000.0
+            daily_pnl: dict = {}
+            for t in enriched_trades:
+                if t.get("exit_time"):
+                    d = pd.Timestamp(t["exit_time"]).date()
+                    daily_pnl[d] = daily_pnl.get(d, 0.0) + t["gross_pnl"]
+            benchmark_metrics = compute_benchmark_metrics(daily_pnl, start_balance, benchmark_data)
 
     render_report(
         enriched_trades, equity_curve, metrics, output_path,

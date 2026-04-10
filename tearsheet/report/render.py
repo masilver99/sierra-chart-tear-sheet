@@ -67,7 +67,10 @@ def _empty_chart(message: str) -> str:
 # Individual chart builders
 # ---------------------------------------------------------------------------
 
-def _equity_chart(equity_curve: list[dict], cash_flows: list[dict] | None = None) -> str:
+def _equity_chart(
+    equity_curve: list[dict],
+    cash_flows: list[dict] | None = None,
+) -> str:
     if not equity_curve:
         return "<p style='padding:16px;color:#8b949e'>No equity data.</p>"
 
@@ -281,29 +284,50 @@ def _r_multiple_chart(trades: list[dict]) -> str:
     return _div(fig)
 
 
-def _benchmark_chart(equity_curve: list[dict], benchmark_data: dict | None) -> str:
-    """Compare strategy equity curve vs benchmark indexed to same start."""
-    if not benchmark_data or not equity_curve:
+def _returns_chart(equity_curve: list[dict], benchmark_data: dict | None) -> str:
+    """Cumulative % return for strategy and benchmark, both starting at 0%."""
+    if not equity_curve:
         return ""
 
     import pandas as pd
 
-    start_bal = equity_curve[0]["balance"]
-    strat_x = [p["DateTime"] for p in equity_curve]
-    strat_y = [p["balance"] / start_bal * 100 for p in equity_curve]
-
-    ticker = benchmark_data.get("ticker", "Benchmark")
-    bench_dates = [pd.Timestamp(d) for d in benchmark_data.get("dates", [])]
-    bench_normalized = benchmark_data.get("normalized", [])
+    df = pd.DataFrame(equity_curve)
+    df["date"] = pd.to_datetime(df["DateTime"]).dt.date
+    balance_key = "adjusted_balance" if "adjusted_balance" in df.columns else "balance"
+    daily = df.groupby("date").agg({balance_key: "last"}).reset_index()
+    start_bal = float(daily[balance_key].iloc[0])
+    dts = [str(d) for d in daily["date"]]
+    strat_returns = [round((float(v) / start_bal - 1) * 100, 4) for v in daily[balance_key]]
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=strat_x, y=strat_y, name="Strategy",
-                             line=dict(color="#58a6ff", width=2)))
-    if bench_dates and bench_normalized:
-        fig.add_trace(go.Scatter(x=bench_dates, y=bench_normalized, name=ticker,
-                                 line=dict(color="#d29922", width=1.5, dash="dot")))
-    fig.update_layout(**_CHART_LAYOUT, yaxis_title="Indexed Return (100 = start)")
-    fig.add_hline(y=100, line_color="#30363d", line_width=1)
+    fig.add_trace(go.Scatter(
+        x=dts, y=strat_returns,
+        mode="lines", name="Strategy Return",
+        line=dict(color="#58a6ff", width=2),
+        hovertemplate="Strategy: %{y:.2f}%<br>Date: %{x}<extra></extra>",
+    ))
+
+    if benchmark_data:
+        ticker = benchmark_data.get("ticker", "Benchmark")
+        bench_dates = [str(d) for d in benchmark_data.get("dates", [])]
+        bench_normalized = benchmark_data.get("normalized", [])
+        if bench_dates and bench_normalized and len(bench_dates) == len(bench_normalized):
+            bench_returns = [round(float(v) - 100.0, 4) for v in bench_normalized]
+            fig.add_trace(go.Scatter(
+                x=bench_dates, y=bench_returns,
+                mode="lines", name=f"{ticker} Return",
+                line=dict(color="#d29922", width=1.5, dash="dot"),
+                hovertemplate=f"{ticker}: %{{y:.2f}}%<br>Date: %{{x}}<extra></extra>",
+            ))
+
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        yaxis_title="Cumulative Return (%)",
+        yaxis_ticksuffix="%",
+        showlegend=True,
+        legend=dict(x=0.02, y=0.98),
+    )
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
     return _div(fig)
 
 
@@ -517,7 +541,7 @@ def render_report(
     exec_metrics: dict[str, Any] | None = None,
     segmentation: dict[str, Any] | None = None,
     rolling_metrics: dict[str, Any] | None = None,
-    benchmark_data: list[dict[str, Any]] | None = None,
+    benchmark_data: dict[str, Any] | None = None,
     benchmark_metrics: dict[str, Any] | None = None,
     calendar_data: dict[str, Any] | None = None,
     cash_flows: list[dict[str, Any]] | None = None,
@@ -533,6 +557,21 @@ def render_report(
     plotly_js = '<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>'
 
     has_r_multiples = any(t.get("r_multiple") is not None for t in trades)
+    segmentation_data = {
+        "by_direction": {},
+        "by_instrument": {},
+        "by_note": {},
+        "by_session": {},
+        "by_date": [],
+        "by_day_of_week": {},
+        "by_week": {},
+        "by_month": {},
+        "by_hour": {},
+        "pct_profitable_days": None,
+        "pct_profitable_weeks": None,
+        "pct_profitable_months": None,
+        **(segmentation or {}),
+    }
 
     html = tmpl.render(
         report_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -540,7 +579,7 @@ def render_report(
         trades=trades,
         metrics=metrics,
         exec_metrics=exec_metrics or {},
-        segmentation=segmentation or {},
+        segmentation=segmentation_data,
         equity_chart=_equity_chart(equity_curve, cash_flows),
         drawdown_chart=_drawdown_chart(equity_curve),
         daily_pnl_chart=_daily_pnl_chart(trades),
@@ -548,7 +587,7 @@ def render_report(
         duration_chart=_duration_chart(trades),
         rolling_chart=_rolling_expectancy_chart(rolling_metrics),
         r_multiple_chart=_r_multiple_chart(trades),
-        benchmark_chart=_benchmark_chart(equity_curve, benchmark_data),
+        returns_chart=_returns_chart(equity_curve, benchmark_data),
         pnl_distribution_chart=_trade_pnl_distribution_chart(trades),
         timing_heatmap_chart=_timing_heatmap(trades),
         direction_mix_chart=_direction_mix_chart(trades),

@@ -1,4 +1,4 @@
-"""Trade segmentation helpers — direction, note/tag, and session breakdowns."""
+"""Trade segmentation helpers — direction, instrument, note/tag, and session breakdowns."""
 
 from __future__ import annotations
 
@@ -67,6 +67,23 @@ def segment_by_direction(trades: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "long": _segment_stats(long_trades),
         "short": _segment_stats(short_trades),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Instrument segmentation
+# ---------------------------------------------------------------------------
+
+def segment_by_instrument(trades: list[dict[str, Any]]) -> dict[str, Any]:
+    """Return a dict keyed by traded symbol with per-instrument stat dicts."""
+    by_instrument: dict[str, list[dict[str, Any]]] = {}
+    for t in trades:
+        instrument = t.get("symbol", "") or ""
+        by_instrument.setdefault(instrument, []).append(t)
+
+    return {
+        instrument: _segment_stats(by_instrument[instrument])
+        for instrument in sorted(by_instrument.keys())
     }
 
 

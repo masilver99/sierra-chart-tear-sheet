@@ -16,7 +16,6 @@ def fetch_benchmark(
 
     Returns None if:
     - yfinance is not installed
-    - Only a single day of data
     - Network error
     - No overlapping dates
 
@@ -34,9 +33,6 @@ def fetch_benchmark(
     except ImportError:
         return None
 
-    if start_date == end_date:
-        return None  # Single-day: degrade gracefully
-
     try:
         # Fetch with 1 extra day buffer for alignment
         fetch_start = start_date - datetime.timedelta(days=5)
@@ -48,18 +44,32 @@ def fetch_benchmark(
 
         # Filter to date range
         hist.index = [d.date() if hasattr(d, 'date') else d for d in hist.index]
-        mask = [(d >= start_date and d <= end_date) for d in hist.index]
-        hist = hist[mask]
-
-        if len(hist) < 2:
+        matching_dates = [d for d in hist.index if start_date <= d <= end_date]
+        if not matching_dates:
             return None
 
-        closes = hist["Close"].tolist()
-        # yfinance may return a DataFrame with MultiIndex columns; flatten if needed
-        if hasattr(closes[0], '__len__'):
-            closes = [float(c[0]) if hasattr(c, '__len__') else float(c) for c in closes]
+        if len(matching_dates) == 1:
+            match_pos = hist.index.get_loc(matching_dates[0])
+            if isinstance(match_pos, slice):
+                match_pos = match_pos.start
+            try:
+                match_pos = int(match_pos)
+            except (TypeError, ValueError):
+                return None
+            if match_pos <= 0:
+                return None
+            hist = hist.iloc[match_pos - 1:match_pos + 1]
         else:
-            closes = [float(c) for c in closes]
+            mask = [(d >= start_date and d <= end_date) for d in hist.index]
+            hist = hist[mask]
+            if len(hist) < 2:
+                return None
+
+        close_values = hist["Close"]
+        # yfinance may return a DataFrame with MultiIndex columns; flatten if needed
+        if hasattr(close_values, "columns"):
+            close_values = close_values.iloc[:, 0]
+        closes = [float(c) for c in close_values.tolist()]
 
         dates = [str(d) for d in hist.index]
         base = closes[0]
@@ -79,32 +89,6 @@ def fetch_benchmark(
 
 
 def compute_benchmark_metrics(
-    strategy_daily_pnl: dict,
-    start_balance: float,
-    benchmark_data: dict,
-) -> dict:
-    """Compare strategy daily P&L vs benchmark.
-
-    Returns:
-        {
-            "strategy_total_return_pct": float,
-            "benchmark_total_return_pct": float,
-            "alpha": float,  # strategy minus benchmark total return %
-            "ticker": str,
-        }
-    """
-    strategy_pnl = sum(strategy_daily_pnl.values()) if strategy_daily_pnl else 0.0
-    strategy_return_pct = (strategy_pnl / start_balance * 100) if start_balance else 0.0
-    bench_return = benchmark_data.get("total_return_pct", 0.0)
-    return {
-        "strategy_total_return_pct": round(strategy_return_pct, 4),
-        "benchmark_total_return_pct": round(bench_return, 4),
-        "alpha": round(strategy_return_pct - bench_return, 4),
-        "ticker": benchmark_data.get("ticker", "SPY"),
-    }
-
-
-def compute_benchmark_metrics(
     daily_pnl: dict,
     start_balance: float,
     benchmark_data: dict,
@@ -113,6 +97,7 @@ def compute_benchmark_metrics(
     total_strategy_pnl = sum(daily_pnl.values()) if daily_pnl else 0.0
     strategy_total_return_pct = (total_strategy_pnl / start_balance) if start_balance else 0.0
     benchmark_total_return_pct = (benchmark_data.get("total_return_pct", 0.0) or 0.0) / 100.0
+    ticker = benchmark_data.get("ticker", "SPY")
 
     beta = None
     alpha_annualized = None
@@ -153,7 +138,9 @@ def compute_benchmark_metrics(
     return {
         "strategy_total_return_pct": round(strategy_total_return_pct * 100, 4),
         "benchmark_total_return_pct": round(benchmark_total_return_pct * 100, 4),
+        "alpha": round((strategy_total_return_pct - benchmark_total_return_pct) * 100, 4),
         "beta": beta,
         "alpha_annualized": alpha_annualized,
         "correlation": correlation,
+        "ticker": ticker,
     }
