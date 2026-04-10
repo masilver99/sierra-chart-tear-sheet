@@ -11,5 +11,10 @@ Download the repo into a directory and from outside the directory run:
 ```
 python -m tearsheet --input [YourExportFileName.txt] --output report.html
 ```
-This will generate an html report similar to this: [samples\report.html](https://htmlpreview.github.io/?https://raw.githubusercontent.com/masilver99/sierra-chart-tear-sheet/refs/heads/main/samples/report.html)
+You can then double-click on report.html to view your tear sheet report.
+
+This will generate an html report similar to this [sample report](https://masilver99.github.io/sierra-chart-tear-sheet/report.html)
+
+There is also a standalone EXE for windows for those that don't want to install python in the releases: https://github.com/masilver99/sierra-chart-tear-sheet/releases
+
 
