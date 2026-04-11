@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Trade Tear Sheet — {{ report_date }}</title>
   <style>
-    :root {
+    :root, [data-theme="dark"] {
       --bg: #0d1117;
       --surface: #161b22;
       --border: #30363d;
@@ -15,6 +15,37 @@
       --red: #f85149;
       --blue: #58a6ff;
       --yellow: #d29922;
+      --row-even: rgba(255,255,255,.03);
+      --row-line: rgba(255,255,255,.04);
+      --popup-bg: #1c2129;
+    }
+    [data-theme="light"] {
+      --bg: #ffffff;
+      --surface: #f6f8fa;
+      --border: #d0d7de;
+      --text: #1f2328;
+      --muted: #57606a;
+      --green: #1a7f37;
+      --red: #cf222e;
+      --blue: #0969da;
+      --yellow: #9a6700;
+      --row-even: rgba(0,0,0,.04);
+      --row-line: rgba(0,0,0,.08);
+      --popup-bg: #eef0f3;
+    }
+    [data-theme="pastel"] {
+      --bg: #fef6ff;
+      --surface: #f3e8ff;
+      --border: #d4b8f0;
+      --text: #2d1b4e;
+      --muted: #7a5fa0;
+      --green: #3aaa77;
+      --red: #e05585;
+      --blue: #5b8dd9;
+      --yellow: #c4922a;
+      --row-even: rgba(0,0,0,.04);
+      --row-line: rgba(0,0,0,.07);
+      --popup-bg: #edddf9;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.5; }
@@ -33,8 +64,8 @@
     .chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     thead th { background: var(--surface); border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: left; color: var(--muted); font-weight: 500; }
-    tbody tr:nth-child(even) { background: rgba(255,255,255,.03); }
-    tbody td { padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,.04); }
+    tbody tr:nth-child(even) { background: var(--row-even); }
+    tbody td { padding: 5px 10px; border-bottom: 1px solid var(--row-line); }
     .win { color: var(--green); }
     .loss { color: var(--red); }
     .seg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px; }
@@ -46,8 +77,8 @@
     .sc-stats-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
     .sc-stats-table thead th { background: var(--surface); border-bottom: 2px solid var(--border); padding: 7px 12px; text-align: right; color: var(--muted); font-weight: 600; font-size: 11px; }
     .sc-stats-table thead th:first-child { text-align: left; }
-    .sc-stats-table tbody tr:nth-child(even) { background: rgba(255,255,255,.025); }
-    .sc-stats-table tbody td { padding: 5px 12px; border-bottom: 1px solid rgba(255,255,255,.04); text-align: right; }
+    .sc-stats-table tbody tr:nth-child(even) { background: var(--row-even); }
+    .sc-stats-table tbody td { padding: 5px 12px; border-bottom: 1px solid var(--row-line); text-align: right; }
     .sc-stats-table tbody td:first-child { text-align: left; color: var(--muted); font-size: 11px; }
     .sc-stats-table .sc-grp td { background: rgba(88,166,255,.07); color: var(--blue); font-weight: 600; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 4px 12px; border-top: 1px solid var(--border); }
     .sc-stats-table .pos { color: var(--green); }
@@ -123,8 +154,8 @@
     .cal-trades-scroll { overflow-x: auto; border: 1px solid var(--border); border-top: none; border-radius: 0 0 6px 6px; }
     .cal-trade-table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 1200px; }
     .cal-trade-table thead th { background: var(--surface); border-bottom: 1px solid var(--border); padding: 5px 8px; text-align: left; color: var(--muted); white-space: nowrap; }
-    .cal-trade-table tbody tr:nth-child(even) { background: rgba(255,255,255,.02); }
-    .cal-trade-table tbody td { padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,.03); }
+    .cal-trade-table tbody tr:nth-child(even) { background: var(--row-even); }
+    .cal-trade-table tbody td { padding: 4px 8px; border-bottom: 1px solid var(--row-line); }
     .section-toggle { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 11px; margin-left: 8px; vertical-align: middle; }
     .section-toggle:hover { color: var(--text); border-color: var(--text); }
     /* Sidebar nav */
@@ -180,7 +211,7 @@
     .kpi-help-popup {
       position: absolute; bottom: calc(100% + 7px); left: 50%;
       transform: translateX(-50%);
-      background: #1c2129; border: 1px solid var(--border); border-radius: 6px;
+      background: var(--popup-bg); border: 1px solid var(--border); border-radius: 6px;
       padding: 8px 10px; font-size: 11px; color: var(--text); width: 220px;
       display: none; z-index: 100; pointer-events: none;
       text-transform: none; letter-spacing: normal; font-weight: 400; line-height: 1.45;
@@ -286,6 +317,18 @@
     .sec-search-item-label { display: block; }
     .sec-search-item-ctx { display: block; font-size: 10px; color: var(--muted); margin-top: 1px; }
     .sec-search-empty { padding: 10px 14px; font-size: 12px; color: var(--muted); font-style: italic; }
+    /* Theme selector */
+    .theme-selector {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .theme-selector label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .theme-select {
+      padding: 4px 8px;
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: 4px;
+      font-size: 12px; cursor: pointer; outline: none;
+    }
+    .theme-select:hover, .theme-select:focus { border-color: var(--blue); }
   </style>
   {{ plotly_js | safe }}
 </head>
@@ -307,6 +350,14 @@
     <div class="sec-search-wrap" id="sec-search-wrap">
       <input class="sec-search-input" id="sec-search-input" type="search" placeholder="Jump to section…" autocomplete="off" spellcheck="false" />
       <div class="sec-search-dropdown" id="sec-search-dropdown"></div>
+    </div>
+    <div class="theme-selector">
+      <label for="theme-select">Theme:</label>
+      <select class="theme-select" id="theme-select">
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+        <option value="pastel">Pastel</option>
+      </select>
     </div>
   </div>
 </header>
@@ -1796,6 +1847,24 @@
   input.addEventListener('input',function(){buildItems(input.value);dropdown.classList.add('open');});
   input.addEventListener('keydown',function(e){if(e.key==='Escape')closeDropdown();});
   document.addEventListener('click',function(e){if(!wrap.contains(e.target))dropdown.classList.remove('open');});
+})();
+</script>
+<script>
+(function(){
+  var DEFAULT_THEME = 'dark';
+  function setTheme(t){
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('ts-theme', t);
+    // Keep the select in sync when called programmatically (e.g. on page load)
+    var sel = document.getElementById('theme-select');
+    if(sel) sel.value = t;
+  }
+  window.setTheme = setTheme;
+  // Wire up the dropdown
+  var sel = document.getElementById('theme-select');
+  if(sel) sel.addEventListener('change', function(){ setTheme(this.value); });
+  // Apply saved theme on load
+  setTheme(localStorage.getItem('ts-theme') || DEFAULT_THEME);
 })();
 </script>
 </body>
