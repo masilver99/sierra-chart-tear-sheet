@@ -1010,21 +1010,21 @@
   {% if has_r_multiples %}
   <h2 id="sec-r-multiple">R-Multiple Statistics</h2>
   <div class="kpi-grid" style="margin-bottom:12px">
-    <div class="kpi"><div class="label">Avg R (r_avg)</div>
+    <div class="kpi"><div class="label kpi-label-row">Avg R<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average R-Multiple — the mean trade result expressed as a multiple of the initial risk per trade. A value of 1.0R means you earn, on average, exactly what you risked. Above 0.5R is considered a healthy edge; above 1.0R is exceptional.</span></span></div>
       <div class="value {{ 'pos' if metrics.r_avg and metrics.r_avg >= 0 else 'neg' }}">
         {{ "{:.2f}R".format(metrics.r_avg) if metrics.r_avg is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Median R</div>
+    <div class="kpi"><div class="label kpi-label-row">Median R<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Median R-Multiple — the middle value when all trade R-multiples are sorted. Less influenced by outlier wins or losses than the average. A positive median R confirms that more than half of your trades are profitable on a risk-adjusted basis.</span></span></div>
       <div class="value {{ 'pos' if metrics.r_median and metrics.r_median >= 0 else 'neg' }}">
         {{ "{:.2f}R".format(metrics.r_median) if metrics.r_median is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Total R</div>
+    <div class="kpi"><div class="label kpi-label-row">Total R<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Total R Earned — the sum of all R-multiples across every trade. Represents the cumulative risk-adjusted return of your strategy. Divide by the number of trades to get Avg R, or track its slope over time to assess whether your edge is compounding.</span></span></div>
       <div class="value {{ 'pos' if metrics.total_r and metrics.total_r >= 0 else 'neg' }}">
         {{ "{:.2f}R".format(metrics.total_r) if metrics.total_r is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">% &ge; 1R</div><div class="value">
+    <div class="kpi"><div class="label kpi-label-row">% &ge; 1R<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Percentage of trades that closed at or above 1× the initial risk (i.e., earned at least as much as you risked). A high % ≥ 1R combined with a positive average R indicates the strategy hits targets consistently without relying on rare large winners.</span></span></div><div class="value">
         {{ "{:.1f}%".format(metrics.r_pct_1r * 100) if metrics.r_pct_1r is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">% &ge; 2R</div><div class="value">
+    <div class="kpi"><div class="label kpi-label-row">% &ge; 2R<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Percentage of trades that closed at or above 2× the initial risk. These are the home-run trades that substantially outpace the risk taken. Even a modest % ≥ 2R can offset many small losses and drive a strong overall expectancy.</span></span></div><div class="value">
         {{ "{:.1f}%".format(metrics.r_pct_2r * 100) if metrics.r_pct_2r is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Positive R</div><div class="value pos">{{ metrics.positive_r_count }}</div></div>
-    <div class="kpi"><div class="label">Negative R</div><div class="value neg">{{ metrics.negative_r_count }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Positive R<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Count of trades with a positive R-Multiple (closed in profit relative to initial risk). Compare to Negative R to see the raw win/loss count on a risk-adjusted basis — trades that barely scratched for a profit but risked a large amount will still count here.</span></span></div><div class="value pos">{{ metrics.positive_r_count }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Negative R<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Count of trades with a negative R-Multiple (closed at a loss relative to initial risk). A high Negative R count is acceptable if losses are consistently small (e.g. −0.5R) while winners are large (e.g. +2R) — what matters is the average R, not the count alone.</span></span></div><div class="value neg">{{ metrics.negative_r_count }}</div></div>
   </div>
   <div class="chart-wrapper">{{ r_multiple_chart | safe }}</div>
   {% endif %}
