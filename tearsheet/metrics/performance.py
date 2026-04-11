@@ -158,6 +158,34 @@ def compute_metrics(trades: list[dict[str, Any]], equity_curve: list[dict[str, A
     # MFE/MAE quality ratio: > 1 means average runup exceeds average drawdown (good trade management)
     avg_mfe_mae_ratio = round(avg_mfe / abs(avg_mae), 4) if avg_mae and avg_mae != 0 else None
 
+    # Drawdown duration / recovery and time-at-high diagnostics
+    drawdown_diagnostics = _drawdown_episode_metrics(equity_curve)
+
+    # Excursion percentiles in dollars and, when available, in R
+    abs_maes = [abs(float(t["mae"])) for t in trades if t.get("mae") is not None]
+    mfe_values = [max(float(t["mfe"]), 0.0) for t in trades if t.get("mfe") is not None]
+    mae_percentiles = _percentile_summary(abs_maes)
+    mfe_percentiles = _percentile_summary(mfe_values)
+
+    mae_r_values = [
+        abs(float(t["mae"])) / float(t["initial_risk"])
+        for t in trades
+        if t.get("mae") is not None and t.get("initial_risk") is not None and float(t["initial_risk"]) > 0
+    ]
+    mfe_r_values = [
+        max(float(t["mfe"]), 0.0) / float(t["initial_risk"])
+        for t in trades
+        if t.get("mfe") is not None and t.get("initial_risk") is not None and float(t["initial_risk"]) > 0
+    ]
+    mae_r_percentiles = _percentile_summary(mae_r_values, digits=3)
+    mfe_r_percentiles = _percentile_summary(mfe_r_values, digits=3)
+
+    # Concentration / robustness beyond top-5 share
+    top1_profit_share = round(sorted_winners[0] / total_winner_sum, 4) if total_winner_sum and sorted_winners else None
+    top10_sum = sum(sorted_winners[:10]) if winners else None
+    top10_profit_share = round(top10_sum / total_winner_sum, 4) if (top10_sum and total_winner_sum and total_winner_sum > 0) else None
+    winner_gini = _gini(sorted_winners) if sorted_winners else None
+
     return {
         "n_trades": n,
         "total_gross_pnl": round(total_gross, 2),
@@ -224,6 +252,20 @@ def compute_metrics(trades: list[dict[str, Any]], equity_curve: list[dict[str, A
         "max_winning_day": max_winning_day,
         "max_losing_day": max_losing_day,
         "avg_mfe_mae_ratio": avg_mfe_mae_ratio,
+        "drawdown_episode_count": drawdown_diagnostics["episode_count"],
+        "longest_drawdown_days": drawdown_diagnostics["longest_duration_days"],
+        "avg_drawdown_days": drawdown_diagnostics["avg_duration_days"],
+        "median_recovery_days": drawdown_diagnostics["median_recovery_days"],
+        "current_underwater_days": drawdown_diagnostics["current_underwater_days"],
+        "pct_time_at_highs": drawdown_diagnostics["pct_time_at_highs"],
+        "days_since_last_equity_high": drawdown_diagnostics["days_since_last_equity_high"],
+        "mae_percentiles": mae_percentiles,
+        "mfe_percentiles": mfe_percentiles,
+        "mae_r_percentiles": mae_r_percentiles,
+        "mfe_r_percentiles": mfe_r_percentiles,
+        "top1_profit_share": top1_profit_share,
+        "top10_profit_share": top10_profit_share,
+        "winner_gini": round(winner_gini, 4) if winner_gini is not None else None,
     }
 
 
@@ -254,6 +296,11 @@ def _empty_metrics() -> dict[str, Any]:
         # Edge quality / position sizing
         "kelly_criterion", "breakeven_win_rate", "concentration_ratio",
         "avg_mae_winners", "max_winning_day", "max_losing_day", "avg_mfe_mae_ratio",
+        "drawdown_episode_count", "longest_drawdown_days", "avg_drawdown_days",
+        "median_recovery_days", "current_underwater_days", "pct_time_at_highs",
+        "days_since_last_equity_high", "mae_percentiles", "mfe_percentiles",
+        "mae_r_percentiles", "mfe_r_percentiles", "top1_profit_share",
+        "top10_profit_share", "winner_gini",
     ]}
 
 
@@ -262,6 +309,133 @@ def _median(values: list[float]) -> float:
     n = len(sorted_v)
     mid = n // 2
     return (sorted_v[mid] + sorted_v[~mid]) / 2.0
+
+
+def _quantile(values: list[float], q: float) -> Optional[float]:
+    if not values:
+        return None
+    sorted_v = sorted(values)
+    if len(sorted_v) == 1:
+        return sorted_v[0]
+    pos = (len(sorted_v) - 1) * q
+    lo = math.floor(pos)
+    hi = math.ceil(pos)
+    if lo == hi:
+        return sorted_v[lo]
+    frac = pos - lo
+    return sorted_v[lo] + (sorted_v[hi] - sorted_v[lo]) * frac
+
+
+def _percentile_summary(values: list[float], digits: int = 2) -> Optional[dict[str, float]]:
+    if not values:
+        return None
+    return {
+        "p50": round(_quantile(values, 0.50), digits),
+        "p75": round(_quantile(values, 0.75), digits),
+        "p90": round(_quantile(values, 0.90), digits),
+        "p95": round(_quantile(values, 0.95), digits),
+    }
+
+
+def _gini(values: list[float]) -> Optional[float]:
+    positives = sorted(v for v in values if v >= 0)
+    if not positives:
+        return None
+    total = sum(positives)
+    if total <= 0:
+        return None
+    n = len(positives)
+    weighted = sum((idx + 1) * value for idx, value in enumerate(positives))
+    return (2.0 * weighted) / (n * total) - (n + 1) / n
+
+
+def _drawdown_episode_metrics(equity_curve: list[dict[str, Any]]) -> dict[str, Any]:
+    if len(equity_curve) < 2:
+        return {
+            "episode_count": 0,
+            "longest_duration_days": None,
+            "avg_duration_days": None,
+            "median_recovery_days": None,
+            "current_underwater_days": 0,
+            "pct_time_at_highs": None,
+            "days_since_last_equity_high": None,
+        }
+
+    import pandas as pd
+
+    balance_key = "adjusted_balance" if "adjusted_balance" in equity_curve[0] else "balance"
+    daily_balances: dict[Any, float] = {}
+    for point in equity_curve:
+        dt = pd.Timestamp(point["DateTime"]).date()
+        daily_balances[dt] = float(point[balance_key])
+
+    if len(daily_balances) < 2:
+        return {
+            "episode_count": 0,
+            "longest_duration_days": None,
+            "avg_duration_days": None,
+            "median_recovery_days": None,
+            "current_underwater_days": 0,
+            "pct_time_at_highs": None,
+            "days_since_last_equity_high": None,
+        }
+
+    series = [{"date": d, "balance": daily_balances[d]} for d in sorted(daily_balances)]
+    peak_balance = series[0]["balance"]
+    last_high_date = series[0]["date"]
+    at_high_points = 0
+    active: dict[str, Any] | None = None
+    episodes: list[dict[str, Any]] = []
+
+    for point in series:
+        date = point["date"]
+        balance = point["balance"]
+
+        if balance >= peak_balance:
+            at_high_points += 1
+            if active is not None:
+                active["recovery_date"] = date
+                active["duration_days"] = (date - active["start_date"]).days
+                active["recovery_days"] = (date - active["trough_date"]).days
+                episodes.append(active)
+                active = None
+            peak_balance = balance
+            last_high_date = date
+            continue
+
+        if active is None:
+            active = {
+                "start_date": date,
+                "trough_date": date,
+                "trough_balance": balance,
+                "max_depth": balance - peak_balance,
+            }
+        elif balance < active["trough_balance"]:
+            active["trough_date"] = date
+            active["trough_balance"] = balance
+            active["max_depth"] = balance - peak_balance
+
+    current_underwater_days = 0
+    if active is not None:
+        end_date = series[-1]["date"]
+        active["duration_days"] = (end_date - active["start_date"]).days
+        active["recovery_days"] = None
+        episodes.append(active)
+        current_underwater_days = active["duration_days"]
+
+    durations = [ep["duration_days"] for ep in episodes]
+    recovery_days = [ep["recovery_days"] for ep in episodes if ep["recovery_days"] is not None]
+    end_date = series[-1]["date"]
+
+    return {
+        "episode_count": len(episodes),
+        "longest_duration_days": max(durations) if durations else None,
+        "avg_duration_days": round(sum(durations) / len(durations), 1) if durations else None,
+        "median_recovery_days": round(_median(recovery_days), 1) if recovery_days else None,
+        "current_underwater_days": current_underwater_days,
+        "pct_time_at_highs": round(at_high_points / len(series), 4) if series else None,
+        "days_since_last_equity_high": (end_date - last_high_date).days if last_high_date is not None else None,
+    }
 
 
 def _std(values: list[float]) -> float:

@@ -14,6 +14,7 @@ from tearsheet.metrics.montecarlo import run_monte_carlo
 import plotly.graph_objects as go
 import plotly.io as pio
 from jinja2 import Environment, FileSystemLoader
+from plotly.subplots import make_subplots
 
 # When frozen by PyInstaller, __file__ is unreliable; use _MEIPASS instead.
 if getattr(sys, "frozen", False):
@@ -69,6 +70,95 @@ def _div(fig: go.Figure) -> str:
 
 def _empty_chart(message: str) -> str:
     return f"<p style='padding:16px;color:#8b949e'>{message}</p>"
+
+
+def _quantile(values: list[float], q: float) -> float | None:
+    if not values:
+        return None
+    sorted_v = sorted(values)
+    if len(sorted_v) == 1:
+        return sorted_v[0]
+    pos = (len(sorted_v) - 1) * q
+    lo = math.floor(pos)
+    hi = math.ceil(pos)
+    if lo == hi:
+        return sorted_v[lo]
+    frac = pos - lo
+    return sorted_v[lo] + (sorted_v[hi] - sorted_v[lo]) * frac
+
+
+def _safe_pct(numerator: float, denominator: float) -> float | None:
+    return (numerator / denominator) if denominator else None
+
+
+def _daily_equity_series(equity_curve: list[dict]) -> list[dict[str, Any]]:
+    if not equity_curve:
+        return []
+
+    import pandas as pd
+
+    balance_key = "adjusted_balance" if "adjusted_balance" in equity_curve[0] else "balance"
+    by_date: dict[Any, float] = {}
+    for point in equity_curve:
+        dt = pd.Timestamp(point["DateTime"]).date()
+        by_date[dt] = float(point[balance_key])
+    return [{"date": d, "balance": by_date[d]} for d in sorted(by_date)]
+
+
+def _drawdown_episodes(equity_curve: list[dict]) -> list[dict[str, Any]]:
+    series = _daily_equity_series(equity_curve)
+    if len(series) < 2:
+        return []
+
+    peak_balance = series[0]["balance"]
+    active: dict[str, Any] | None = None
+    episodes: list[dict[str, Any]] = []
+
+    for point in series:
+        date = point["date"]
+        balance = point["balance"]
+
+        if balance >= peak_balance:
+            if active is not None:
+                active["recovery_date"] = date
+                active["duration_days"] = (date - active["start_date"]).days
+                active["recovery_days"] = (date - active["trough_date"]).days
+                episodes.append(active)
+                active = None
+            peak_balance = balance
+            continue
+
+        if active is None:
+            active = {
+                "start_date": date,
+                "trough_date": date,
+                "trough_balance": balance,
+                "max_depth": balance - peak_balance,
+            }
+        elif balance < active["trough_balance"]:
+            active["trough_date"] = date
+            active["trough_balance"] = balance
+            active["max_depth"] = balance - peak_balance
+
+    if active is not None:
+        end_date = series[-1]["date"]
+        active["duration_days"] = (end_date - active["start_date"]).days
+        active["recovery_days"] = None
+        episodes.append(active)
+
+    return episodes
+
+
+def _duration_bucket_label(duration_s: float) -> str:
+    if duration_s < 60:
+        return "<1m"
+    if duration_s < 5 * 60:
+        return "1-5m"
+    if duration_s < 15 * 60:
+        return "5-15m"
+    if duration_s < 30 * 60:
+        return "15-30m"
+    return "30m+"
 
 
 # ---------------------------------------------------------------------------
@@ -654,6 +744,653 @@ def _duration_profit_scatter_chart(trades: list[dict]) -> str:
     return _div(fig)
 
 
+def _mae_winners_scatter_chart(trades: list[dict]) -> str:
+    """Scatter plot of |MAE| vs gross P&L for winning trades with ±1σ / ±2σ bands.
+
+    Answers the question: "How much heat did my winners take before closing in profit?"
+    A tight cluster near the origin means winners rarely experienced much adversity.
+    A wide spread on the x-axis suggests winners often required significant drawdown
+    tolerance before turning profitable.
+    """
+    winners = [
+        t for t in trades
+        if t.get("gross_pnl", 0.0) > 0
+        and t.get("mae") is not None
+    ]
+
+    if len(winners) < 3:
+        return _empty_chart("Not enough winning trade data for MAE chart.")
+
+    abs_maes = [abs(float(t["mae"])) for t in winners]
+    pnls = [float(t["gross_pnl"]) for t in winners]
+    n = len(winners)
+
+    def _stats(vals):
+        mu = sum(vals) / len(vals)
+        sigma = math.sqrt(sum((v - mu) ** 2 for v in vals) / max(len(vals) - 1, 1))
+        return mu, sigma
+
+    mu_m, sig_m = _stats(abs_maes)
+    mu_p, sig_p = _stats(pnls)
+
+    fig = go.Figure()
+
+    # ±1σ / ±2σ shaded bands for P&L (horizontal)
+    for mult, alpha in ((2, 0.07), (1, 0.13)):
+        fig.add_hrect(
+            y0=max(0, mu_p - mult * sig_p),
+            y1=mu_p + mult * sig_p,
+            fillcolor=f"rgba(88,166,255,{alpha})",
+            line_width=0,
+            layer="below",
+        )
+
+    # ±1σ / ±2σ shaded bands for MAE (vertical)
+    for mult, alpha in ((2, 0.07), (1, 0.13)):
+        fig.add_vrect(
+            x0=max(0, mu_m - mult * sig_m),
+            x1=mu_m + mult * sig_m,
+            fillcolor=f"rgba(248,81,73,{alpha})",
+            line_width=0,
+            layer="below",
+        )
+
+    # Mean reference lines
+    fig.add_hline(y=mu_p, line_color="#58a6ff", line_width=1, line_dash="dash")
+    fig.add_vline(x=mu_m, line_color="#f85149", line_width=1, line_dash="dash")
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
+    fig.add_vline(x=0, line_color="#30363d", line_width=1)
+
+    fig.add_trace(go.Scatter(
+        x=abs_maes,
+        y=pnls,
+        mode="markers",
+        marker=dict(color="#3fb950", size=7, opacity=0.8, line=dict(width=0.5, color="#0d1117")),
+        text=[f"T{t.get('trade_id', '')}: MAE=${abs(float(t['mae'])):,.2f} P&L=${float(t['gross_pnl']):,.2f}" for t in winners],
+        hovertemplate="%{text}<extra></extra>",
+        name="Winning Trades",
+    ))
+
+    annotation_text = (
+        f"<b>MAE (heat taken)</b><br>"
+        f"μ=${mu_m:,.2f}  σ=${sig_m:,.2f}<br>"
+        f"<b>P&amp;L</b><br>"
+        f"μ=${mu_p:,.2f}  σ=${sig_p:,.2f}<br>"
+        f"n={n} winners"
+    )
+    fig.add_annotation(
+        x=0.99, y=0.98,
+        xref="paper", yref="paper",
+        xanchor="right", yanchor="top",
+        showarrow=False,
+        align="right",
+        bgcolor="rgba(13,17,23,0.80)",
+        bordercolor="#30363d",
+        borderwidth=1,
+        font=dict(size=10, color="#c9d1d9"),
+        text=annotation_text,
+    )
+
+    fig.update_layout(
+        **_CHART_LAYOUT,
+        xaxis_title="|MAE| — Heat Taken ($)",
+        yaxis_title="Gross P&L ($)",
+        showlegend=False,
+    )
+    return _div(fig)
+
+
+def _drawdown_recovery_chart(equity_curve: list[dict]) -> str:
+    episodes = _drawdown_episodes(equity_curve)
+    if not episodes:
+        return _empty_chart("No completed drawdown episodes.")
+
+    labels = [f"DD{idx + 1}" for idx in range(len(episodes))]
+    durations = [ep["duration_days"] for ep in episodes]
+    recoveries = [ep["recovery_days"] for ep in episodes]
+    depths = [abs(ep["max_depth"]) for ep in episodes]
+    recovered = [ep["recovery_days"] is not None for ep in episodes]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=labels,
+        y=durations,
+        name="Duration (days)",
+        marker_color=["#f85149" if not ok else "#d29922" for ok in recovered],
+        text=[f"{d}d" for d in durations],
+        textposition="outside",
+        customdata=[
+            [
+                str(ep["start_date"]),
+                str(ep["trough_date"]),
+                str(ep.get("recovery_date")) if ep.get("recovery_date") is not None else "Open",
+                abs(ep["max_depth"]),
+                ep["recovery_days"],
+            ]
+            for ep in episodes
+        ],
+        hovertemplate=(
+            "Episode %{x}<br>"
+            "Start: %{customdata[0]}<br>"
+            "Trough: %{customdata[1]}<br>"
+            "Recovery: %{customdata[2]}<br>"
+            "Duration: %{y} days<br>"
+            "Recovery after trough: %{customdata[4]} days<br>"
+            "Max depth: -$%{customdata[3]:,.2f}<extra></extra>"
+        ),
+    ))
+    fig.add_trace(go.Scatter(
+        x=labels,
+        y=[r if r is not None else None for r in recoveries],
+        mode="markers+lines",
+        name="Recovery Days",
+        marker=dict(color="#58a6ff", size=8, symbol="diamond"),
+        line=dict(color="#58a6ff", width=1.5),
+        connectgaps=False,
+        hovertemplate="Recovery days: %{y}<extra></extra>",
+    ))
+    fig.update_layout(
+        **dict(_CHART_LAYOUT, height=320),
+        yaxis_title="Days",
+        barmode="overlay",
+        legend=dict(x=0.02, y=0.98),
+    )
+    return _div(fig)
+
+
+def _time_bucket_expectancy_chart(segmentation: dict | None) -> str:
+    if not segmentation:
+        return _empty_chart("No segmentation data.")
+
+    datasets = [
+        (
+            "By Session",
+            [(label.title(), segmentation.get("by_session", {}).get(label)) for label in ("open", "midday", "close")],
+        ),
+        (
+            "By Day of Week",
+            [(label[:3], segmentation.get("by_day_of_week", {}).get(label)) for label in ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")],
+        ),
+        (
+            "By Entry Hour",
+            [
+                (f"{hour:02d}:00", stats)
+                for hour, stats in sorted((segmentation.get("by_hour") or {}).items())
+            ],
+        ),
+    ]
+
+    fig = make_subplots(
+        rows=3,
+        cols=1,
+        shared_xaxes=False,
+        vertical_spacing=0.12,
+        subplot_titles=[title for title, _ in datasets],
+        specs=[[{"secondary_y": True}], [{"secondary_y": True}], [{"secondary_y": True}]],
+    )
+
+    has_data = False
+    for row, (_, rows_data) in enumerate(datasets, start=1):
+        labels = []
+        expectancies = []
+        counts = []
+        for label, stats in rows_data:
+            if not stats or stats.get("n_trades", 0) == 0:
+                continue
+            labels.append(label)
+            expectancies.append(stats.get("expectancy", 0.0))
+            counts.append(stats.get("n_trades", 0))
+
+        if not labels:
+            continue
+        has_data = True
+        colors = ["#3fb950" if value >= 0 else "#f85149" for value in expectancies]
+        fig.add_trace(go.Bar(
+            x=labels,
+            y=expectancies,
+            marker_color=colors,
+            text=[f"n={count}" for count in counts],
+            textposition="outside",
+            name="Expectancy",
+            hovertemplate="%{x}<br>Expectancy: %{y:$,.2f}<br>%{text}<extra></extra>",
+            showlegend=row == 1,
+        ), row=row, col=1, secondary_y=False)
+        fig.add_trace(go.Scatter(
+            x=labels,
+            y=counts,
+            mode="lines+markers",
+            name="Trades",
+            line=dict(color="#58a6ff", width=2),
+            marker=dict(size=7),
+            hovertemplate="%{x}<br>Trades: %{y}<extra></extra>",
+            showlegend=row == 1,
+        ), row=row, col=1, secondary_y=True)
+        fig.add_hline(y=0, line_color="#30363d", line_width=1, row=row, col=1)
+        fig.update_yaxes(title_text="Expectancy ($)", row=row, col=1, secondary_y=False)
+        fig.update_yaxes(title_text="Trades", row=row, col=1, secondary_y=True)
+
+    if not has_data:
+        return _empty_chart("No time-bucket data.")
+
+    fig.update_layout(**dict(_CHART_LAYOUT, height=760), legend=dict(x=0.02, y=1.05, orientation="h"))
+    return _div(fig)
+
+
+def _excursion_percentile_chart(trades: list[dict]) -> str:
+    percentiles = [0.50, 0.75, 0.90, 0.95]
+    labels = ["P50", "P75", "P90", "P95"]
+
+    mae_values = [abs(float(t["mae"])) for t in trades if t.get("mae") is not None]
+    mfe_values = [max(float(t["mfe"]), 0.0) for t in trades if t.get("mfe") is not None]
+    if not mae_values and not mfe_values:
+        return _empty_chart("No excursion data.")
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    mae_curve = [_quantile(mae_values, q) for q in percentiles] if mae_values else []
+    mfe_curve = [_quantile(mfe_values, q) for q in percentiles] if mfe_values else []
+    if mae_curve:
+        fig.add_trace(go.Scatter(
+            x=labels,
+            y=mae_curve,
+            mode="lines+markers",
+            name="|MAE| ($)",
+            line=dict(color="#f85149", width=2),
+            hovertemplate="%{x}<br>|MAE|: %{y:$,.2f}<extra></extra>",
+        ), row=1, col=1, secondary_y=False)
+    if mfe_curve:
+        fig.add_trace(go.Scatter(
+            x=labels,
+            y=mfe_curve,
+            mode="lines+markers",
+            name="MFE ($)",
+            line=dict(color="#3fb950", width=2),
+            hovertemplate="%{x}<br>MFE: %{y:$,.2f}<extra></extra>",
+        ), row=1, col=1, secondary_y=False)
+
+    mae_r = [
+        abs(float(t["mae"])) / float(t["initial_risk"])
+        for t in trades
+        if t.get("mae") is not None and t.get("initial_risk") is not None and float(t["initial_risk"]) > 0
+    ]
+    mfe_r = [
+        max(float(t["mfe"]), 0.0) / float(t["initial_risk"])
+        for t in trades
+        if t.get("mfe") is not None and t.get("initial_risk") is not None and float(t["initial_risk"]) > 0
+    ]
+    if mae_r:
+        fig.add_trace(go.Scatter(
+            x=labels,
+            y=[_quantile(mae_r, q) for q in percentiles],
+            mode="lines+markers",
+            name="|MAE| (R)",
+            line=dict(color="#ff7b72", width=1.5, dash="dash"),
+            hovertemplate="%{x}<br>|MAE|: %{y:.2f}R<extra></extra>",
+        ), row=1, col=1, secondary_y=True)
+    if mfe_r:
+        fig.add_trace(go.Scatter(
+            x=labels,
+            y=[_quantile(mfe_r, q) for q in percentiles],
+            mode="lines+markers",
+            name="MFE (R)",
+            line=dict(color="#56d364", width=1.5, dash="dash"),
+            hovertemplate="%{x}<br>MFE: %{y:.2f}R<extra></extra>",
+        ), row=1, col=1, secondary_y=True)
+
+    fig.update_layout(**dict(_CHART_LAYOUT, height=320), legend=dict(x=0.02, y=1.02, orientation="h"))
+    fig.update_yaxes(title_text="Excursion ($)", row=1, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="Excursion (R)", row=1, col=1, secondary_y=True)
+    return _div(fig)
+
+
+def _holding_time_efficiency_chart(trades: list[dict]) -> str:
+    import pandas as pd
+
+    buckets = {label: [] for label in ("<1m", "1-5m", "5-15m", "15-30m", "30m+")}
+    for trade in trades:
+        if trade.get("entry_time") is None or trade.get("exit_time") is None:
+            continue
+        try:
+            duration_s = (pd.Timestamp(trade["exit_time"]) - pd.Timestamp(trade["entry_time"])).total_seconds()
+        except Exception:
+            continue
+        if duration_s < 0:
+            continue
+        buckets[_duration_bucket_label(duration_s)].append(trade)
+
+    labels, expectancy, win_rate, capture = [], [], [], []
+    for label, bucket_trades in buckets.items():
+        if not bucket_trades:
+            continue
+        labels.append(label)
+        pnls = [float(t.get("gross_pnl", 0.0) or 0.0) for t in bucket_trades]
+        expectancy.append(sum(pnls) / len(pnls))
+        win_rate.append(sum(1 for pnl in pnls if pnl > 0) / len(pnls) * 100)
+        captures = [
+            (float(t.get("gross_pnl", 0.0) or 0.0) / float(t["mfe"])) * 100
+            for t in bucket_trades
+            if t.get("mfe") is not None and float(t["mfe"]) > 0
+        ]
+        capture.append(sum(captures) / len(captures) if captures else None)
+
+    if not labels:
+        return _empty_chart("No duration data.")
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(go.Bar(
+        x=labels,
+        y=expectancy,
+        marker_color=["#3fb950" if value >= 0 else "#f85149" for value in expectancy],
+        text=[f"n={len(buckets[label])}" for label in labels],
+        textposition="outside",
+        name="Expectancy",
+        hovertemplate="%{x}<br>Expectancy: %{y:$,.2f}<br>%{text}<extra></extra>",
+    ), row=1, col=1, secondary_y=False)
+    fig.add_trace(go.Scatter(
+        x=labels,
+        y=win_rate,
+        mode="lines+markers",
+        name="Win Rate",
+        line=dict(color="#58a6ff", width=2),
+        hovertemplate="%{x}<br>Win rate: %{y:.1f}%<extra></extra>",
+    ), row=1, col=1, secondary_y=True)
+    if any(value is not None for value in capture):
+        fig.add_trace(go.Scatter(
+            x=labels,
+            y=[value if value is not None else None for value in capture],
+            mode="lines+markers",
+            name="MFE Capture",
+            line=dict(color="#d29922", width=2, dash="dash"),
+            hovertemplate="%{x}<br>MFE capture: %{y:.1f}%<extra></extra>",
+        ), row=1, col=1, secondary_y=True)
+
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
+    fig.update_layout(**dict(_CHART_LAYOUT, height=320), legend=dict(x=0.02, y=1.02, orientation="h"))
+    fig.update_yaxes(title_text="Expectancy ($)", row=1, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="Percent", row=1, col=1, secondary_y=True)
+    return _div(fig)
+
+
+def _streak_state_chart(trades: list[dict]) -> str:
+    states = {label: [] for label in ("After 1L", "After 2L", "After 3L+", "After 1W", "After 2W", "After 3W+")}
+    prev_sign = None
+    prev_run = 0
+
+    for trade in trades:
+        pnl = float(trade.get("gross_pnl", 0.0) or 0.0)
+        if prev_sign == "W":
+            label = f"After {min(prev_run, 3)}W" + ("+" if prev_run >= 3 else "")
+            states[label].append(trade)
+        elif prev_sign == "L":
+            label = f"After {min(prev_run, 3)}L" + ("+" if prev_run >= 3 else "")
+            states[label].append(trade)
+
+        if pnl > 0:
+            prev_run = prev_run + 1 if prev_sign == "W" else 1
+            prev_sign = "W"
+        elif pnl < 0:
+            prev_run = prev_run + 1 if prev_sign == "L" else 1
+            prev_sign = "L"
+        else:
+            prev_sign = None
+            prev_run = 0
+
+    labels, expectancy, win_rates, counts = [], [], [], []
+    for label, bucket_trades in states.items():
+        if not bucket_trades:
+            continue
+        labels.append(label)
+        pnls = [float(t.get("gross_pnl", 0.0) or 0.0) for t in bucket_trades]
+        expectancy.append(sum(pnls) / len(pnls))
+        win_rates.append(sum(1 for pnl in pnls if pnl > 0) / len(pnls) * 100)
+        counts.append(len(bucket_trades))
+
+    if not labels:
+        return _empty_chart("Not enough trade history for streak-state analysis.")
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(go.Bar(
+        x=labels,
+        y=expectancy,
+        marker_color=["#3fb950" if value >= 0 else "#f85149" for value in expectancy],
+        text=[f"n={count}" for count in counts],
+        textposition="outside",
+        name="Expectancy",
+        hovertemplate="%{x}<br>Expectancy: %{y:$,.2f}<br>%{text}<extra></extra>",
+    ), row=1, col=1, secondary_y=False)
+    fig.add_trace(go.Scatter(
+        x=labels,
+        y=win_rates,
+        mode="lines+markers",
+        name="Win Rate",
+        line=dict(color="#58a6ff", width=2),
+        hovertemplate="%{x}<br>Win rate: %{y:.1f}%<extra></extra>",
+    ), row=1, col=1, secondary_y=True)
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
+    fig.update_layout(**dict(_CHART_LAYOUT, height=320), legend=dict(x=0.02, y=1.02, orientation="h"))
+    fig.update_yaxes(title_text="Next-Trade Expectancy ($)", row=1, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="Next-Trade Win Rate (%)", row=1, col=1, secondary_y=True)
+    return _div(fig)
+
+
+def _exit_efficiency_chart(trades: list[dict]) -> str:
+    by_exit: dict[str, dict[str, Any]] = {}
+    for trade in trades:
+        label = (trade.get("exit_type") or "").strip() or "untagged"
+        bucket = by_exit.setdefault(label, {"capture": [], "giveback": [], "count": 0})
+        bucket["count"] += 1
+        mfe = trade.get("mfe")
+        pnl = float(trade.get("gross_pnl", 0.0) or 0.0)
+        if mfe is None or float(mfe) <= 0:
+            continue
+        mfe_val = float(mfe)
+        bucket["capture"].append((pnl / mfe_val) * 100)
+        bucket["giveback"].append(max(mfe_val - pnl, 0.0))
+
+    labels = [label for label, stats in by_exit.items() if stats["count"] > 0]
+    if not labels:
+        return _empty_chart("No exit-type data.")
+
+    avg_capture = [
+        sum(by_exit[label]["capture"]) / len(by_exit[label]["capture"]) if by_exit[label]["capture"] else None
+        for label in labels
+    ]
+    avg_giveback = [
+        sum(by_exit[label]["giveback"]) / len(by_exit[label]["giveback"]) if by_exit[label]["giveback"] else None
+        for label in labels
+    ]
+
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Average MFE Capture", "Average Profit Left on Table"))
+    fig.add_trace(go.Bar(
+        x=labels,
+        y=[value if value is not None else 0 for value in avg_capture],
+        marker_color="#58a6ff",
+        text=[f"n={by_exit[label]['count']}" for label in labels],
+        textposition="outside",
+        hovertemplate="%{x}<br>Capture: %{y:.1f}%<extra></extra>",
+        name="Capture",
+    ), row=1, col=1)
+    fig.add_trace(go.Bar(
+        x=labels,
+        y=[value if value is not None else 0 for value in avg_giveback],
+        marker_color="#d29922",
+        text=[f"n={by_exit[label]['count']}" for label in labels],
+        textposition="outside",
+        hovertemplate="%{x}<br>Left on table: %{y:$,.2f}<extra></extra>",
+        name="Giveback",
+    ), row=1, col=2)
+    fig.update_yaxes(title_text="Capture (%)", row=1, col=1)
+    fig.update_yaxes(title_text="Giveback ($)", row=1, col=2)
+    fig.update_layout(**dict(_CHART_LAYOUT, height=320), showlegend=False)
+    return _div(fig)
+
+
+def _lorenz_curve_chart(trades: list[dict]) -> str:
+    winners = sorted(float(t.get("gross_pnl", 0.0) or 0.0) for t in trades if (t.get("gross_pnl") or 0) > 0)
+    if len(winners) < 2:
+        return _empty_chart("Not enough winning trades for concentration analysis.")
+
+    total = sum(winners)
+    cumulative = [0.0]
+    running = 0.0
+    for value in winners:
+        running += value
+        cumulative.append(running / total if total else 0.0)
+    trade_share = [idx / len(winners) for idx in range(len(winners) + 1)]
+    weighted = sum((idx + 1) * value for idx, value in enumerate(winners))
+    gini = (2.0 * weighted) / (len(winners) * total) - (len(winners) + 1) / len(winners) if total else 0.0
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=trade_share,
+        y=cumulative,
+        mode="lines",
+        name="Winner Lorenz Curve",
+        line=dict(color="#58a6ff", width=2),
+        hovertemplate="Trade share: %{x:.0%}<br>Profit share: %{y:.0%}<extra></extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=[0, 1],
+        y=[0, 1],
+        mode="lines",
+        name="Perfect Equality",
+        line=dict(color="#8b949e", width=1, dash="dash"),
+        hovertemplate="Perfect equality<extra></extra>",
+    ))
+    fig.add_annotation(
+        x=0.98,
+        y=0.08,
+        xref="paper",
+        yref="paper",
+        xanchor="right",
+        showarrow=False,
+        bgcolor="rgba(13,17,23,0.80)",
+        bordercolor="#30363d",
+        borderwidth=1,
+        font=dict(size=10, color="#c9d1d9"),
+        text=f"Gini: {gini:.2f}",
+    )
+    fig.update_layout(**dict(_CHART_LAYOUT, height=320), xaxis_title="Share of Winning Trades", yaxis_title="Share of Gross Profit")
+    fig.update_xaxes(tickformat=".0%")
+    fig.update_yaxes(tickformat=".0%")
+    return _div(fig)
+
+
+def _position_size_sensitivity_chart(trades: list[dict]) -> str:
+    by_size: dict[int, list[dict]] = {}
+    for trade in trades:
+        qty = trade.get("total_qty")
+        if qty is None:
+            continue
+        try:
+            key = int(qty)
+        except (TypeError, ValueError):
+            continue
+        if key <= 0:
+            continue
+        by_size.setdefault(key, []).append(trade)
+
+    if not by_size:
+        return _empty_chart("No position-size data.")
+
+    sizes = sorted(by_size)
+    labels = [str(size) for size in sizes]
+    expectancy = []
+    win_rates = []
+    counts = []
+    for size in sizes:
+        bucket_trades = by_size[size]
+        pnls = [float(t.get("gross_pnl", 0.0) or 0.0) for t in bucket_trades]
+        expectancy.append(sum(pnls) / len(pnls))
+        win_rates.append(sum(1 for pnl in pnls if pnl > 0) / len(pnls) * 100)
+        counts.append(len(bucket_trades))
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(go.Bar(
+        x=labels,
+        y=expectancy,
+        marker_color=["#3fb950" if value >= 0 else "#f85149" for value in expectancy],
+        text=[f"n={count}" for count in counts],
+        textposition="outside",
+        name="Expectancy",
+        hovertemplate="Qty %{x}<br>Expectancy: %{y:$,.2f}<br>%{text}<extra></extra>",
+    ), row=1, col=1, secondary_y=False)
+    fig.add_trace(go.Scatter(
+        x=labels,
+        y=win_rates,
+        mode="lines+markers",
+        name="Win Rate",
+        line=dict(color="#58a6ff", width=2),
+        hovertemplate="Qty %{x}<br>Win rate: %{y:.1f}%<extra></extra>",
+    ), row=1, col=1, secondary_y=True)
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
+    fig.update_layout(**dict(_CHART_LAYOUT, height=320), xaxis_title="Contracts / Position Size", legend=dict(x=0.02, y=1.02, orientation="h"))
+    fig.update_yaxes(title_text="Expectancy ($)", row=1, col=1, secondary_y=False)
+    fig.update_yaxes(title_text="Win Rate (%)", row=1, col=1, secondary_y=True)
+    return _div(fig)
+
+
+def _monthly_return_heatmap(equity_curve: list[dict]) -> str:
+    series = _daily_equity_series(equity_curve)
+    if len(series) < 2:
+        return _empty_chart("Not enough equity history for monthly heatmap.")
+
+    month_records: list[dict[str, Any]] = []
+    current_month = None
+    month_start_balance = None
+    month_end_balance = None
+
+    for point in series:
+        month_key = point["date"].strftime("%Y-%m")
+        if current_month != month_key:
+            if current_month is not None and month_start_balance not in (None, 0):
+                month_records.append({
+                    "month_key": current_month,
+                    "pnl": month_end_balance - month_start_balance,
+                    "return_pct": (month_end_balance - month_start_balance) / month_start_balance * 100.0,
+                })
+            current_month = month_key
+            month_start_balance = month_end_balance if month_end_balance is not None else point["balance"]
+        month_end_balance = point["balance"]
+
+    if current_month is not None and month_start_balance not in (None, 0) and month_end_balance is not None:
+        month_records.append({
+            "month_key": current_month,
+            "pnl": month_end_balance - month_start_balance,
+            "return_pct": (month_end_balance - month_start_balance) / month_start_balance * 100.0,
+        })
+
+    if not month_records:
+        return _empty_chart("Not enough monthly return data.")
+
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    years = sorted({record["month_key"][:4] for record in month_records})
+    z = [[None for _ in range(12)] for _ in years]
+    text = [["" for _ in range(12)] for _ in years]
+    year_index = {year: idx for idx, year in enumerate(years)}
+
+    for record in month_records:
+        year, month = record["month_key"].split("-")
+        row = year_index[year]
+        col = int(month) - 1
+        z[row][col] = round(record["return_pct"], 2)
+        text[row][col] = f"{record['return_pct']:.2f}%<br>${record['pnl']:,.0f}"
+
+    fig = go.Figure(go.Heatmap(
+        x=month_names,
+        y=years,
+        z=z,
+        text=text,
+        texttemplate="%{text}",
+        colorscale=[[0.0, "#f85149"], [0.5, "#30363d"], [1.0, "#3fb950"]],
+        zmid=0,
+        hovertemplate="%{y} %{x}<br>%{text}<extra></extra>",
+        colorbar=dict(title="Return %"),
+    ))
+    fig.update_layout(**dict(_CHART_LAYOUT, height=360), xaxis_title="Month", yaxis_title="Year")
+    return _div(fig)
+
+
 # ---------------------------------------------------------------------------
 # New enhanced charts
 # ---------------------------------------------------------------------------
@@ -1082,6 +1819,16 @@ def render_report(
         returns_chart=_returns_chart(equity_curve, benchmark_data),
         pnl_distribution_chart=_trade_pnl_distribution_chart(trades),
         duration_profit_scatter_chart=_duration_profit_scatter_chart(trades),
+        mae_winners_scatter_chart=_mae_winners_scatter_chart(trades),
+        drawdown_recovery_chart=_drawdown_recovery_chart(equity_curve),
+        time_bucket_expectancy_chart=_time_bucket_expectancy_chart(segmentation_data),
+        excursion_percentile_chart=_excursion_percentile_chart(trades),
+        holding_time_efficiency_chart=_holding_time_efficiency_chart(trades),
+        streak_state_chart=_streak_state_chart(trades),
+        exit_efficiency_chart=_exit_efficiency_chart(trades),
+        concentration_lorenz_chart=_lorenz_curve_chart(trades),
+        position_size_chart=_position_size_sensitivity_chart(trades),
+        monthly_return_heatmap_chart=_monthly_return_heatmap(equity_curve),
         timing_heatmap_chart=_timing_heatmap(trades),
         direction_mix_chart=_direction_mix_chart(trades),
         session_mix_chart=_session_mix_chart(trades),

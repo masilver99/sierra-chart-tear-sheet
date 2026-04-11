@@ -79,6 +79,15 @@ def test_render_html_contains_new_visual_sections(minimal_report_inputs, tmp_pat
     assert "Direction Mix" in html
     assert "Session Mix" in html
     assert "Outcome Mix" in html
+    assert "Drawdown Recovery Profile" in html
+    assert "Expectancy by Time Bucket" in html
+    assert "Excursion Percentiles" in html
+    assert "Holding-Time Efficiency" in html
+    assert "Streak-State Analysis" in html
+    assert "Exit Efficiency" in html
+    assert "Profit Concentration" in html
+    assert "Position Size Sensitivity" in html
+    assert "Monthly Return Heatmap" in html
 
 
 def test_render_html_contains_instrument_breakdown(minimal_report_inputs, tmp_path):
@@ -175,6 +184,8 @@ def test_metrics_keys_present(minimal_report_inputs):
     required = {
         "n_trades", "total_gross_pnl", "total_fees", "total_net_pnl",
         "win_rate", "profit_factor", "expectancy", "max_drawdown",
+        "drawdown_episode_count", "pct_time_at_highs", "top1_profit_share",
+        "mae_percentiles", "mfe_percentiles",
     }
     assert required.issubset(metrics.keys())
 

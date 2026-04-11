@@ -196,6 +196,12 @@
       vertical-align: middle;
     }
     .kpi-hint:hover { background: var(--blue); }
+    .kpi-jump-link {
+      color: inherit;
+      text-decoration: underline dotted rgba(201, 209, 217, 0.55);
+      text-underline-offset: 2px;
+    }
+    .kpi-jump-link:hover { color: var(--blue); }
     /* KPI color scale (shared) */
     .kpi-scale-wrap { margin-top: 9px; }
     .kpi-marker-row { position: relative; height: 10px; }
@@ -602,7 +608,7 @@
     <div class="kpi"><div class="label">Shortest Trade</div><div class="value">{{ metrics.shortest_trade_s | format_duration }}</div></div>
     <div class="kpi"><div class="label">Longest Trade</div><div class="value">{{ metrics.longest_trade_s | format_duration }}</div></div>
     <div class="kpi"><div class="label kpi-label-row">Avg MFE<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average Maximum Favourable Excursion — the mean peak open profit reached across all trades. A higher value indicates the market regularly moves in your favour after entry, suggesting good entry timing.</span></span></div><div class="value pos">{{ "${:,.2f}".format(metrics.avg_mfe) if metrics.avg_mfe is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label kpi-label-row">Avg MAE<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average Maximum Adverse Excursion — the mean worst open loss experienced per trade before closing. Lower values indicate tighter, more efficient entries where the market rarely moves far against you.</span></span></div><div class="value neg">{{ "${:,.2f}".format(metrics.avg_mae) if metrics.avg_mae is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row"><a href="#sec-mae-winners" class="kpi-jump-link">Avg MAE</a><span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average Maximum Adverse Excursion — the mean worst open loss experienced per trade before closing. Lower values indicate tighter, more efficient entries where the market rarely moves far against you.</span></span></div><div class="value neg">{{ "${:,.2f}".format(metrics.avg_mae) if metrics.avg_mae is not none else "—" }}</div></div>
     <div class="kpi"><div class="label kpi-label-row">MFE Capture<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The percentage of each trade's peak open profit (MFE) actually retained at exit. 100% means you always exited at the exact peak. Consistently low values may indicate premature exits or suboptimal profit targets.</span></span></div><div class="value">{{ "{:.1f}%".format(metrics.mfe_capture_pct * 100) if metrics.mfe_capture_pct is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Long Count</div><div class="value">{{ metrics.long_count if metrics.long_count is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Short Count</div><div class="value">{{ metrics.short_count if metrics.short_count is not none else "—" }}</div></div>
@@ -675,6 +681,59 @@
       <div class="value">{{ "{:.1f}".format(metrics.avg_trades_per_day) if metrics.avg_trades_per_day is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Trading Days</div>
       <div class="value">{{ metrics.trading_days if metrics.trading_days is not none else "—" }}</div></div>
+  </div>
+
+  <h2 id="sec-trader-diagnostics">Trader Diagnostics</h2>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">DD Episodes</div><div class="value">{{ metrics.drawdown_episode_count if metrics.drawdown_episode_count is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Longest DD</div><div class="value">{{ "{:.0f}d".format(metrics.longest_drawdown_days) if metrics.longest_drawdown_days is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Avg DD Length</div><div class="value">{{ "{:.1f}d".format(metrics.avg_drawdown_days) if metrics.avg_drawdown_days is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Median Recovery</div><div class="value">{{ "{:.1f}d".format(metrics.median_recovery_days) if metrics.median_recovery_days is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Current Underwater</div><div class="value">{{ "{:.0f}d".format(metrics.current_underwater_days) if metrics.current_underwater_days is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Days Since High</div><div class="value">{{ "{:.0f}d".format(metrics.days_since_last_equity_high) if metrics.days_since_last_equity_high is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">% Time at Highs</div><div class="value">{{ "{:.1f}%".format(metrics.pct_time_at_highs * 100) if metrics.pct_time_at_highs is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Top 1 Profit Share</div><div class="value">{{ "{:.1f}%".format(metrics.top1_profit_share * 100) if metrics.top1_profit_share is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Top 10 Profit Share</div><div class="value">{{ "{:.1f}%".format(metrics.top10_profit_share * 100) if metrics.top10_profit_share is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Winner Gini</div><div class="value">{{ "{:.2f}".format(metrics.winner_gini) if metrics.winner_gini is not none else "—" }}</div></div>
+  </div>
+
+  <h2 id="sec-excursion-stats">Excursion Percentiles</h2>
+  <div class="seg-card" style="margin-bottom:18px">
+    <table>
+      <thead>
+        <tr><th>Measure</th><th>P50</th><th>P75</th><th>P90</th><th>P95</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>|MAE| ($)</td>
+          <td>{{ "${:,.2f}".format(metrics.mae_percentiles.p50) if metrics.mae_percentiles is not none else "—" }}</td>
+          <td>{{ "${:,.2f}".format(metrics.mae_percentiles.p75) if metrics.mae_percentiles is not none else "—" }}</td>
+          <td>{{ "${:,.2f}".format(metrics.mae_percentiles.p90) if metrics.mae_percentiles is not none else "—" }}</td>
+          <td>{{ "${:,.2f}".format(metrics.mae_percentiles.p95) if metrics.mae_percentiles is not none else "—" }}</td>
+        </tr>
+        <tr>
+          <td>MFE ($)</td>
+          <td>{{ "${:,.2f}".format(metrics.mfe_percentiles.p50) if metrics.mfe_percentiles is not none else "—" }}</td>
+          <td>{{ "${:,.2f}".format(metrics.mfe_percentiles.p75) if metrics.mfe_percentiles is not none else "—" }}</td>
+          <td>{{ "${:,.2f}".format(metrics.mfe_percentiles.p90) if metrics.mfe_percentiles is not none else "—" }}</td>
+          <td>{{ "${:,.2f}".format(metrics.mfe_percentiles.p95) if metrics.mfe_percentiles is not none else "—" }}</td>
+        </tr>
+        <tr>
+          <td>|MAE| (R)</td>
+          <td>{{ "{:.3f}R".format(metrics.mae_r_percentiles.p50) if metrics.mae_r_percentiles is not none else "—" }}</td>
+          <td>{{ "{:.3f}R".format(metrics.mae_r_percentiles.p75) if metrics.mae_r_percentiles is not none else "—" }}</td>
+          <td>{{ "{:.3f}R".format(metrics.mae_r_percentiles.p90) if metrics.mae_r_percentiles is not none else "—" }}</td>
+          <td>{{ "{:.3f}R".format(metrics.mae_r_percentiles.p95) if metrics.mae_r_percentiles is not none else "—" }}</td>
+        </tr>
+        <tr>
+          <td>MFE (R)</td>
+          <td>{{ "{:.3f}R".format(metrics.mfe_r_percentiles.p50) if metrics.mfe_r_percentiles is not none else "—" }}</td>
+          <td>{{ "{:.3f}R".format(metrics.mfe_r_percentiles.p75) if metrics.mfe_r_percentiles is not none else "—" }}</td>
+          <td>{{ "{:.3f}R".format(metrics.mfe_r_percentiles.p90) if metrics.mfe_r_percentiles is not none else "—" }}</td>
+          <td>{{ "{:.3f}R".format(metrics.mfe_r_percentiles.p95) if metrics.mfe_r_percentiles is not none else "—" }}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
   {% if exec_metrics %}
@@ -877,6 +936,9 @@
   <h2 id="sec-mfe-mae">MFE vs MAE</h2>
   <div class="chart-wrapper">{{ mfe_chart | safe }}</div>
 
+  <h2 id="sec-mae-winners">MAE vs P&amp;L — Winning Trades (Std Dev)</h2>
+  <div class="chart-wrapper">{{ mae_winners_scatter_chart | safe }}</div>
+
   <h2 id="sec-distribution">Trade P&amp;L Distribution</h2>
   <div class="chart-wrapper">{{ pnl_distribution_chart | safe }}</div>
 
@@ -885,6 +947,33 @@
 
   <h2 id="sec-duration-profit">Time in Trade vs P&amp;L (Std Dev)</h2>
   <div class="chart-wrapper">{{ duration_profit_scatter_chart | safe }}</div>
+
+  <h2 id="sec-dd-recovery">Drawdown Recovery Profile</h2>
+  <div class="chart-wrapper">{{ drawdown_recovery_chart | safe }}</div>
+
+  <h2 id="sec-time-bucket-edge">Expectancy by Time Bucket</h2>
+  <div class="chart-wrapper">{{ time_bucket_expectancy_chart | safe }}</div>
+
+  <h2 id="sec-excursion-profile">Excursion Percentile Profile</h2>
+  <div class="chart-wrapper">{{ excursion_percentile_chart | safe }}</div>
+
+  <h2 id="sec-holding-efficiency">Holding-Time Efficiency</h2>
+  <div class="chart-wrapper">{{ holding_time_efficiency_chart | safe }}</div>
+
+  <h2 id="sec-streak-state">Streak-State Analysis</h2>
+  <div class="chart-wrapper">{{ streak_state_chart | safe }}</div>
+
+  <h2 id="sec-exit-efficiency">Exit Efficiency</h2>
+  <div class="chart-wrapper">{{ exit_efficiency_chart | safe }}</div>
+
+  <h2 id="sec-profit-concentration">Profit Concentration</h2>
+  <div class="chart-wrapper">{{ concentration_lorenz_chart | safe }}</div>
+
+  <h2 id="sec-position-size">Position Size Sensitivity</h2>
+  <div class="chart-wrapper">{{ position_size_chart | safe }}</div>
+
+  <h2 id="sec-monthly-heatmap">Monthly Return Heatmap</h2>
+  <div class="chart-wrapper">{{ monthly_return_heatmap_chart | safe }}</div>
 
   <h2 id="sec-timing">Timing Heatmap</h2>
   <div class="chart-wrapper">{{ timing_heatmap_chart | safe }}</div>
