@@ -6,6 +6,42 @@ Inspired by the [QuantStats](https://github.com/ranaroussi/quantstats) tearsheet
 
 Donations are not wanted for this project.  Send your money to a great charity, instead.
 
+## Installation
+
+### Python
+
+Requires Python 3.9 or later. Install the package and its dependencies with pip:
+
+```
+pip install .
+```
+
+This installs all required libraries (`pandas`, `plotly`, `Jinja2`) automatically.
+
+Alternatively, install only the dependencies without installing the package itself:
+
+```
+pip install -r requirements.txt
+```
+
+To also enable the optional benchmark comparison against SPY (requires internet access):
+
+```
+pip install ".[benchmark]"
+```
+
+or manually:
+
+```
+pip install yfinance
+```
+
+### Windows Executable
+
+A standalone EXE for Windows (no Python required) is available in [Releases](https://github.com/masilver99/sierra-chart-tear-sheet/releases).
+
+---
+
 ## Usage
 
 ### Python
@@ -14,11 +50,13 @@ Donations are not wanted for this project.  Send your money to a great charity, 
 python -m tearsheet --input YourExportFileName.txt --output report.html
 ```
 
+Or, if you installed the package via `pip install .`, you can use the `tearsheet` command directly:
+
+```
+tearsheet --input YourExportFileName.txt --output report.html
+```
+
 Open `report.html` in any modern browser to explore your results.
-
-### Windows Executable
-
-A standalone EXE for Windows (no Python required) is available in [Releases](https://github.com/masilver99/sierra-chart-tear-sheet/releases).
 
 ### Sample Report
 
