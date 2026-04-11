@@ -303,3 +303,27 @@ def segment_by_hour(trades: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
         stats["hour"] = h
         result[h] = stats
     return result
+
+
+# ---------------------------------------------------------------------------
+# Exit-type segmentation
+# ---------------------------------------------------------------------------
+
+def segment_by_exit_type(trades: list[dict[str, Any]]) -> dict[str, Any]:
+    """Group by exit_type field (e.g. 'target', 'stop', 'manual', '').
+
+    Returns a dict keyed by exit type label, sorted by total_net_pnl descending.
+    Each value is a ``_segment_stats`` dict with an extra ``exit_type`` key.
+    """
+    by_exit: dict[str, list[dict[str, Any]]] = {}
+    for t in trades:
+        label = (t.get("exit_type") or "").strip() or "untagged"
+        by_exit.setdefault(label, []).append(t)
+
+    # Sort by total_net_pnl descending so the most profitable type appears first
+    result: dict[str, Any] = {}
+    for label in sorted(by_exit.keys(), key=lambda k: -sum(t["net_pnl"] for t in by_exit[k])):
+        stats = _segment_stats(by_exit[label])
+        stats["exit_type"] = label
+        result[label] = stats
+    return result

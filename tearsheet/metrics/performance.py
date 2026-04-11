@@ -127,6 +127,30 @@ def compute_metrics(trades: list[dict[str, Any]], equity_curve: list[dict[str, A
     avg_trades_per_day = round(n / total_trading_days, 2) if total_trading_days else None
     avg_daily_net_pnl = round(total_net / total_trading_days, 2) if total_trading_days else None
 
+    # --- Position sizing / edge quality ---
+    # Kelly Criterion: f* = W - (1-W)/R (fraction of capital to risk per trade)
+    kelly_criterion = (win_rate - (1 - win_rate) / payoff_ratio) if payoff_ratio and payoff_ratio > 0 else None
+    # Breakeven win rate: the win rate required to produce zero expectancy given current payoff ratio
+    breakeven_win_rate_needed = 1 / (1 + payoff_ratio) if payoff_ratio and payoff_ratio > 0 else None
+
+    # Concentration: % of gross profit contributed by the top-5 winning trades
+    sorted_winners = sorted(winners, reverse=True)
+    top5_sum = sum(sorted_winners[:5]) if winners else None
+    total_winner_sum = sum(winners) if winners else None
+    concentration_ratio = round(top5_sum / total_winner_sum, 4) if (top5_sum and total_winner_sum and total_winner_sum > 0) else None
+
+    # Avg MAE of winning trades (how much adversity winners withstood before closing)
+    winner_maes = [t["mae"] for t in trades if t["gross_pnl"] > 0]
+    avg_mae_winners = round(sum(winner_maes) / len(winner_maes), 2) if winner_maes else None
+
+    # Max winning / losing day
+    daily_pnl_values = list(daily_pnls_by_date.values())
+    max_winning_day = round(max(daily_pnl_values), 2) if daily_pnl_values else None
+    max_losing_day = round(min(daily_pnl_values), 2) if daily_pnl_values else None
+
+    # MFE/MAE quality ratio: > 1 means average runup exceeds average drawdown (good trade management)
+    avg_mfe_mae_ratio = round(avg_mfe / abs(avg_mae), 4) if avg_mae and avg_mae != 0 else None
+
     return {
         "n_trades": n,
         "total_gross_pnl": round(total_gross, 2),
@@ -179,6 +203,14 @@ def compute_metrics(trades: list[dict[str, Any]], equity_curve: list[dict[str, A
         "pct_profitable_days": round(pct_profitable_days, 4) if pct_profitable_days is not None else None,
         "avg_trades_per_day": avg_trades_per_day,
         "avg_daily_net_pnl": avg_daily_net_pnl,
+        # --- Edge quality / position sizing ---
+        "kelly_criterion": round(kelly_criterion, 4) if kelly_criterion is not None else None,
+        "breakeven_win_rate": round(breakeven_win_rate_needed, 4) if breakeven_win_rate_needed is not None else None,
+        "concentration_ratio": concentration_ratio,
+        "avg_mae_winners": avg_mae_winners,
+        "max_winning_day": max_winning_day,
+        "max_losing_day": max_losing_day,
+        "avg_mfe_mae_ratio": avg_mfe_mae_ratio,
     }
 
 
@@ -205,6 +237,9 @@ def _empty_metrics() -> dict[str, Any]:
         "recovery_factor", "win_rate_be",
         "trading_days", "total_trading_days", "pct_profitable_days", "avg_trades_per_day",
         "avg_daily_net_pnl",
+        # Edge quality / position sizing
+        "kelly_criterion", "breakeven_win_rate", "concentration_ratio",
+        "avg_mae_winners", "max_winning_day", "max_losing_day", "avg_mfe_mae_ratio",
     ]}
 
 

@@ -239,13 +239,15 @@ def _rolling_expectancy_chart(rolling_metrics: dict | None) -> str:
 
 
 def _rolling_chart(rolling: list[dict]) -> str:
-    """Dual-axis line chart: rolling expectancy (left) and rolling win rate (right)."""
+    """Triple-axis line chart: rolling expectancy (left), win rate (right), Sharpe (right2)."""
     if not rolling:
         return "<p style='padding:16px;color:#8b949e'>Insufficient data for rolling metrics.</p>"
 
     trade_labels = [f"T{r['trade_id']}" for r in rolling]
     expectancies = [r["rolling_expectancy"] for r in rolling]
     win_rates = [r["rolling_win_rate"] * 100 for r in rolling]
+    sharpes = [r.get("rolling_sharpe") for r in rolling]
+    has_sharpe = any(s is not None for s in sharpes)
 
     exp_colors = ["#3fb950" if e >= 0 else "#f85149" for e in expectancies]
     fig = go.Figure()
@@ -259,10 +261,23 @@ def _rolling_chart(rolling: list[dict]) -> str:
         line=dict(color="#58a6ff", width=1.5, dash="dot"),
         yaxis="y2",
     ))
+    if has_sharpe:
+        fig.add_trace(go.Scatter(
+            x=trade_labels,
+            y=[s if s is not None else None for s in sharpes],
+            name="Sharpe",
+            line=dict(color="#d29922", width=1.5, dash="dash"),
+            yaxis="y3",
+        ))
     layout = dict(_CHART_LAYOUT)
     layout["yaxis"] = {"title": "Rolling Expectancy ($)", "color": "#c9d1d9"}
     layout["yaxis2"] = {"title": "Win Rate (%)", "overlaying": "y", "side": "right",
                         "color": "#58a6ff", "range": [0, 100]}
+    if has_sharpe:
+        layout["yaxis3"] = {
+            "title": "Sharpe", "overlaying": "y", "side": "right",
+            "anchor": "free", "position": 1.0, "color": "#d29922",
+        }
     layout["legend"] = {"x": 0.02, "y": 0.98}
     fig.update_layout(**layout)
     fig.add_hline(y=0, line_color="#30363d", line_width=1)
@@ -638,6 +653,257 @@ def _duration_profit_scatter_chart(trades: list[dict]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# New enhanced charts
+# ---------------------------------------------------------------------------
+
+def _pnl_waterfall_chart(trades: list[dict]) -> str:
+    """Bar chart of per-trade P&L with a cumulative P&L line overlay.
+
+    Each bar is green (winner) or red (loser); the running total is plotted as a
+    line on the secondary y-axis so traders can instantly spot whether profits are
+    evenly distributed or concentrated in a handful of outlier trades.
+    """
+    if not trades:
+        return _empty_chart("No trade data.")
+
+    pnls = [t.get("gross_pnl", 0.0) for t in trades]
+    labels = [f"T{t.get('trade_id', i + 1)}" for i, t in enumerate(trades)]
+    cumulative = []
+    running = 0.0
+    for p in pnls:
+        running += p
+        cumulative.append(round(running, 2))
+
+    bar_colors = ["#3fb950" if p >= 0 else "#f85149" for p in pnls]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=labels, y=pnls,
+        marker_color=bar_colors,
+        name="Trade P&L",
+        hovertemplate="Trade %{x}: %{y:$,.2f}<extra></extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=labels, y=cumulative,
+        name="Cumulative P&L",
+        mode="lines",
+        line=dict(color="#d29922", width=2),
+        yaxis="y2",
+        hovertemplate="After %{x}: %{y:$,.2f}<extra></extra>",
+    ))
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 300
+    layout["yaxis"] = {"title": "Trade P&L ($)", "color": "#c9d1d9"}
+    layout["yaxis2"] = {"title": "Cumulative P&L ($)", "overlaying": "y", "side": "right",
+                        "color": "#d29922"}
+    layout["legend"] = {"x": 0.02, "y": 0.98}
+    layout["bargap"] = 0.15
+    fig.update_layout(**layout)
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
+    return _div(fig)
+
+
+def _fee_drag_chart(trades: list[dict]) -> str:
+    """Show cumulative gross P&L vs cumulative fees vs cumulative net P&L over trades.
+
+    The shaded gap between gross and net lines visualises fee drag — useful for
+    evaluating whether commission costs are materially eroding edge.
+    """
+    if not trades:
+        return _empty_chart("No trade data.")
+
+    labels = [f"T{t.get('trade_id', i + 1)}" for i, t in enumerate(trades)]
+    cum_gross, cum_fees, cum_net = [], [], []
+    g = f = n = 0.0
+    for t in trades:
+        g += t.get("gross_pnl", 0.0)
+        f += t.get("fees", 0.0)
+        n += t.get("net_pnl", 0.0)
+        cum_gross.append(round(g, 2))
+        cum_fees.append(round(f, 2))
+        cum_net.append(round(n, 2))
+
+    fig = go.Figure()
+    # Gross P&L fill area
+    fig.add_trace(go.Scatter(
+        x=labels, y=cum_gross, name="Cumulative Gross P&L",
+        line=dict(color="#58a6ff", width=2),
+        fill=None,
+        hovertemplate="%{x} gross: %{y:$,.2f}<extra></extra>",
+    ))
+    # Net P&L fill to gross — shaded region = fees
+    fig.add_trace(go.Scatter(
+        x=labels, y=cum_net, name="Cumulative Net P&L",
+        line=dict(color="#3fb950", width=2),
+        fill="tonexty",
+        fillcolor="rgba(248,81,73,0.15)",
+        hovertemplate="%{x} net: %{y:$,.2f}<extra></extra>",
+    ))
+    # Cumulative fees as a separate line for reference
+    fig.add_trace(go.Scatter(
+        x=labels, y=cum_fees, name="Cumulative Fees",
+        line=dict(color="#f85149", width=1.5, dash="dot"),
+        hovertemplate="%{x} fees: %{y:$,.2f}<extra></extra>",
+    ))
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 300
+    layout["yaxis"] = {"title": "Cumulative P&L ($)"}
+    layout["legend"] = {"x": 0.02, "y": 0.98}
+    fig.update_layout(**layout)
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
+    return _div(fig)
+
+
+def _win_loss_histogram_chart(trades: list[dict]) -> str:
+    """Overlaid histograms of winner and loser P&L amounts.
+
+    Overlaying the two distributions on the same axis shows the shape of the
+    edge: whether wins/losses are fat-tailed, whether the distributions overlap,
+    and how cleanly winners are separated from losers.
+    """
+    if not trades:
+        return _empty_chart("No trade data.")
+
+    winners = [t["gross_pnl"] for t in trades if (t.get("gross_pnl") or 0) > 0]
+    losers = [t["gross_pnl"] for t in trades if (t.get("gross_pnl") or 0) < 0]
+
+    if not winners and not losers:
+        return _empty_chart("No P&L data.")
+
+    nbins = min(30, max(8, int(math.sqrt(len(trades)) * 1.5)))
+    fig = go.Figure()
+    if winners:
+        fig.add_trace(go.Histogram(
+            x=winners, name="Winners",
+            nbinsx=nbins,
+            marker_color="#3fb950",
+            opacity=0.65,
+            hovertemplate="P&L: %{x:.2f}<br>Count: %{y}<extra></extra>",
+        ))
+    if losers:
+        fig.add_trace(go.Histogram(
+            x=losers, name="Losers",
+            nbinsx=nbins,
+            marker_color="#f85149",
+            opacity=0.65,
+            hovertemplate="P&L: %{x:.2f}<br>Count: %{y}<extra></extra>",
+        ))
+    layout = dict(_CHART_LAYOUT)
+    layout["barmode"] = "overlay"
+    layout["bargap"] = 0.05
+    layout["legend"] = {"x": 0.75, "y": 0.98}
+    fig.update_layout(**layout, xaxis_title="Gross P&L ($)", yaxis_title="Trades")
+    fig.add_vline(x=0, line_color="#30363d", line_width=1)
+    return _div(fig)
+
+
+def _exit_type_chart(segmentation: dict | None) -> str:
+    """Horizontal bar chart comparing win rate and avg P&L across exit types.
+
+    Uses the precomputed segment_by_exit_type data to avoid re-scanning trades.
+    Traders can immediately see which exit type (target / stop / manual) is most
+    and least profitable.
+    """
+    if not segmentation:
+        return _empty_chart("No segmentation data.")
+
+    by_exit = segmentation.get("by_exit_type") or {}
+    if not by_exit:
+        return _empty_chart("No exit-type breakdown available.")
+
+    labels = list(by_exit.keys())
+    avg_pnls = [by_exit[k].get("avg_pnl", 0.0) for k in labels]
+    win_rates = [by_exit[k].get("win_rate", 0.0) * 100 for k in labels]
+    n_trades = [by_exit[k].get("n_trades", 0) for k in labels]
+
+    pnl_colors = ["#3fb950" if v >= 0 else "#f85149" for v in avg_pnls]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=avg_pnls, y=labels,
+        orientation="h",
+        name="Avg P&L ($)",
+        marker_color=pnl_colors,
+        text=[f"${v:,.2f}  n={n}" for v, n in zip(avg_pnls, n_trades)],
+        textposition="outside",
+        hovertemplate="%{y}: %{x:$,.2f} avg P&L<extra></extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=win_rates, y=labels,
+        mode="markers+text",
+        name="Win Rate (%)",
+        marker=dict(color="#58a6ff", size=10, symbol="diamond"),
+        text=[f"{v:.0f}%" for v in win_rates],
+        textposition="middle right",
+        xaxis="x2",
+        hovertemplate="%{y}: %{x:.1f}% win rate<extra></extra>",
+    ))
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = max(200, 60 + 55 * len(labels))
+    layout["xaxis"] = {"title": "Avg P&L ($)", "zeroline": True, "zerolinecolor": "#30363d"}
+    layout["xaxis2"] = {"title": "Win Rate (%)", "overlaying": "x", "side": "top",
+                        "range": [0, 110], "color": "#58a6ff"}
+    layout["legend"] = {"x": 0.02, "y": 0.02}
+    layout["margin"] = dict(l=80, r=24, t=32, b=48)
+    fig.update_layout(**layout)
+    return _div(fig)
+
+
+def _daily_distribution_chart(trades: list[dict]) -> str:
+    """Histogram of daily P&L (net, aggregated by exit date).
+
+    Per-trade distributions can hide regime effects; this view shows how
+    profitable days compare to losing days and whether daily P&L is normally
+    distributed or skewed.
+    """
+    if not trades:
+        return _empty_chart("No trade data.")
+
+    import pandas as pd
+
+    daily: dict[str, float] = {}
+    for t in trades:
+        et = t.get("exit_time")
+        if et is None:
+            continue
+        d = str(pd.Timestamp(et).date())
+        daily[d] = daily.get(d, 0.0) + (t.get("net_pnl") or 0.0)
+
+    if not daily:
+        return _empty_chart("No daily P&L data.")
+
+    values = list(daily.values())
+    mean = sum(values) / len(values)
+    nbins = min(30, max(8, len(values)))
+
+    colors_bar = ["#3fb950" if v >= 0 else "#f85149" for v in values]
+
+    fig = go.Figure(go.Histogram(
+        x=values,
+        nbinsx=nbins,
+        marker=dict(
+            color=colors_bar[:1],   # single colour fallback; Plotly ignores per-bin colours in histogram
+            colorscale=[[0, "#f85149"], [0.5, "#30363d"], [1, "#3fb950"]],
+        ),
+        marker_color="#58a6ff",
+        opacity=0.85,
+        hovertemplate="Daily P&L: %{x:$.2f}<br>Days: %{y}<extra></extra>",
+    ))
+    layout = dict(_CHART_LAYOUT)
+    layout["bargap"] = 0.05
+    fig.update_layout(**layout, xaxis_title="Daily Net P&L ($)", yaxis_title="Days")
+    fig.add_vline(x=0, line_color="#30363d", line_width=1)
+    fig.add_vline(
+        x=mean,
+        line_color="#3fb950" if mean >= 0 else "#f85149",
+        line_width=2,
+        annotation_text=f"mean ${mean:,.0f}",
+        annotation_position="top right",
+    )
+    return _div(fig)
+
+
+# ---------------------------------------------------------------------------
 # Main render function
 # ---------------------------------------------------------------------------
 
@@ -703,6 +969,11 @@ def render_report(
         direction_mix_chart=_direction_mix_chart(trades),
         session_mix_chart=_session_mix_chart(trades),
         outcome_mix_chart=_outcome_mix_chart(trades),
+        pnl_waterfall_chart=_pnl_waterfall_chart(trades),
+        fee_drag_chart=_fee_drag_chart(trades),
+        win_loss_histogram_chart=_win_loss_histogram_chart(trades),
+        exit_type_chart=_exit_type_chart(segmentation_data),
+        daily_distribution_chart=_daily_distribution_chart(trades),
         rolling_window=20,
         rolling_metrics=rolling_metrics,
         has_r_multiples=has_r_multiples,

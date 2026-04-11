@@ -17,7 +17,7 @@ from tearsheet.metrics.execution import compute_execution_metrics
 from tearsheet.metrics.segmentation import (
     segment_by_direction, segment_by_instrument, segment_by_note, segment_by_session,
     segment_by_date, segment_by_day_of_week, segment_by_week, segment_by_month,
-    segment_by_hour,
+    segment_by_hour, segment_by_exit_type,
     pct_profitable_periods,
 )
 from tearsheet.metrics.rolling import compute_rolling_metrics
@@ -193,6 +193,7 @@ def run(input_path: str | Path, output_path: str | Path) -> dict[str, Any]:
         "by_week": by_week,
         "by_month": by_month,
         "by_hour": segment_by_hour(enriched_trades),
+        "by_exit_type": segment_by_exit_type(enriched_trades),
         "pct_profitable_days": pct_profitable_periods(by_date),
         "pct_profitable_weeks": pct_profitable_periods(by_week),
         "pct_profitable_months": pct_profitable_periods(by_month),
