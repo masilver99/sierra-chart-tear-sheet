@@ -1,0 +1,10 @@
+# Core runtime dependencies
+pandas>=1.3.0
+plotly>=5.0.0
+Jinja2>=3.0.0
+
+# Optional: benchmark comparison against SPY (fetches live data via yfinance)
+# yfinance>=0.2.0
+
+# Development / testing
+pytest>=7.0
