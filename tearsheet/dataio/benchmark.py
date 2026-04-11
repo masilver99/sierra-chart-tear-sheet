@@ -101,6 +101,8 @@ def compute_benchmark_metrics(
 
     beta = None
     alpha_annualized = None
+    treynor_ratio = None
+    m2_ratio = None
     correlation = None
 
     try:
@@ -132,6 +134,10 @@ def compute_benchmark_metrics(
                         correlation = round(cov / math.sqrt(sv * bv), 4)
                         beta = round(cov / bv, 4)
                         alpha_annualized = round(sm * 252 - beta * bm * 252, 4)
+                        strat_ann = sm * 252
+                        treynor_ratio = round(strat_ann / beta, 4) if beta != 0 else None
+                        # M² = Sharpe * σm_ann  (with Rf = 0), expressed in percentage points
+                        m2_ratio = round(strat_ann * math.sqrt(bv) / math.sqrt(sv) * 100, 4)
     except Exception:
         pass
 
@@ -141,6 +147,8 @@ def compute_benchmark_metrics(
         "alpha": round((strategy_total_return_pct - benchmark_total_return_pct) * 100, 4),
         "beta": beta,
         "alpha_annualized": alpha_annualized,
+        "treynor_ratio": treynor_ratio,
+        "m2_ratio": m2_ratio,
         "correlation": correlation,
         "ticker": ticker,
     }

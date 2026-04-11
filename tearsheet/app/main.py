@@ -34,14 +34,15 @@ def _build_calendar_data(trades: list[dict]) -> dict:
 
     Returns ``{"years": {str_year: {..., "months": {str_month: {...}}}},
                "days":  {date_str: {..., "trades": [trade_record, ...]}}}``.
-    Profitability is based on **net** P&L so calendar colours are consistent
-    with the Consistency KPI section.
+
+    All stats (win rate, profit factor, max drawdown, is_profitable) are based
+    on **net** P&L so every metric is consistent with the calendar tile colour.
     """
     import pandas as pd
 
-    years: dict = {}
     days: dict = {}
 
+    # --- Pass 1: accumulate per-day raw stats from individual trades ---
     for t in trades:
         et = t.get("exit_time")
         if et is None:
@@ -58,13 +59,26 @@ def _build_calendar_data(trades: list[dict]) -> dict:
             days[date_str] = {
                 "year": y, "month": m, "day": d,
                 "total_pnl": 0.0, "net_pnl": 0.0,
-                "n_trades": 0, "n_wins": 0, "trades": [],
+                "n_trades": 0, "n_wins": 0,      # n_wins = gross-based (legacy)
+                "_net_wins": 0,                    # net-based, for calendar display
+                "_net_gross_wins": 0.0,            # sum of net_pnl where net_pnl > 0
+                "_net_gross_losses": 0.0,          # sum of net_pnl where net_pnl < 0
+                "trades": [],
             }
-        days[date_str]["total_pnl"] += t.get("gross_pnl", 0.0)
-        days[date_str]["net_pnl"] += t.get("net_pnl", 0.0)
+
+        gp = float(t.get("gross_pnl", 0.0) or 0.0)
+        np_ = float(t.get("net_pnl", 0.0) or 0.0)
+
+        days[date_str]["total_pnl"] += gp
+        days[date_str]["net_pnl"] += np_
         days[date_str]["n_trades"] += 1
-        if t.get("gross_pnl", 0.0) > 0:
+        if gp > 0:
             days[date_str]["n_wins"] += 1
+        if np_ > 0:
+            days[date_str]["_net_wins"] += 1
+            days[date_str]["_net_gross_wins"] += np_
+        elif np_ < 0:
+            days[date_str]["_net_gross_losses"] += np_   # stays negative
 
         # Full trade record — same schema as the main trade log
         rec: dict = {
@@ -97,19 +111,49 @@ def _build_calendar_data(trades: list[dict]) -> dict:
         rec["r_multiple"] = round(float(v), 2) if v is not None else None
         days[date_str]["trades"].append(rec)
 
-    # Finalise day stats
+    # --- Pass 2: compute derived day-level stats ---
     for dd in days.values():
         n = dd["n_trades"]
-        dd["win_rate"] = round(dd["n_wins"] / n, 4) if n else 0.0
         dd["total_pnl"] = round(dd["total_pnl"], 2)
         dd["net_pnl"] = round(dd["net_pnl"], 2)
         dd["is_profitable"] = dd["net_pnl"] > 0
+        # Net-based win rate for calendar display
+        dd["win_rate"] = round(dd["_net_wins"] / n, 4) if n else 0.0
+        # Net-based profit factor — None when no winners or no losers
+        gw = dd["_net_gross_wins"]
+        gl = abs(dd["_net_gross_losses"])
+        dd["profit_factor"] = round(gw / gl, 2) if gl > 0 and gw > 0 else None
+        # Max intra-day drawdown on cumulative net_pnl, anchored at 0
+        # Sort trades by exit_time then trade_id for a stable chronological order.
+        recs = sorted(
+            dd["trades"],
+            key=lambda r: (r.get("exit_time", ""), r.get("trade_id") or 0),
+        )
+        peak = 0.0
+        running = 0.0
+        max_dd = 0.0
+        for r in recs:
+            running += r.get("net_pnl", 0.0)
+            if running > peak:
+                peak = running
+            val = running - peak
+            if val < max_dd:
+                max_dd = val
+        dd["max_drawdown"] = round(max_dd, 2)
 
-    # Build year / month aggregates
+    # --- Pass 3: build year/month aggregates from chronologically sorted days ---
+    # Separate accumulator for the ordered daily net_pnl sequence per month
+    # (kept outside the public dict to avoid JSON leakage).
+    month_day_pnls: dict[str, list[float]] = {}
+
     str_years: dict = {}
-    for dd in days.values():
+    for date_str in sorted(days.keys()):   # ISO sort = chronological order
+        dd = days[date_str]
         ys = str(dd["year"])
         m = dd["month"]
+        ms = str(m)
+        mo_key = f"{ys}-{ms}"
+
         if ys not in str_years:
             str_years[ys] = {
                 "total_pnl": 0.0, "net_pnl": 0.0,
@@ -121,27 +165,63 @@ def _build_calendar_data(trades: list[dict]) -> dict:
         yr["n_trades"] += dd["n_trades"]
         yr["n_days"] += 1
 
-        ms = str(m)
         if ms not in yr["months"]:
             yr["months"][ms] = {
                 "total_pnl": 0.0, "net_pnl": 0.0,
                 "n_trades": 0, "n_days": 0,
                 "name": _MONTH_ABBR[m - 1], "month_num": m,
+                "_net_wins": 0,
+                "_net_gross_wins": 0.0,
+                "_net_gross_losses": 0.0,
             }
+            month_day_pnls[mo_key] = []
+
         mo = yr["months"][ms]
         mo["total_pnl"] += dd["total_pnl"]
         mo["net_pnl"] += dd["net_pnl"]
         mo["n_trades"] += dd["n_trades"]
         mo["n_days"] += 1
+        mo["_net_wins"] += dd["_net_wins"]
+        mo["_net_gross_wins"] += dd["_net_gross_wins"]
+        mo["_net_gross_losses"] += dd["_net_gross_losses"]
+        month_day_pnls[mo_key].append(dd["net_pnl"])   # already in order (sorted loop)
 
-    for yr in str_years.values():
+    # --- Pass 4: finalise year and month derived stats ---
+    for ys, yr in str_years.items():
         yr["total_pnl"] = round(yr["total_pnl"], 2)
         yr["net_pnl"] = round(yr["net_pnl"], 2)
         yr["is_profitable"] = yr["net_pnl"] > 0
-        for mo in yr["months"].values():
+
+        for ms, mo in yr["months"].items():
+            mo_key = f"{ys}-{ms}"
             mo["total_pnl"] = round(mo["total_pnl"], 2)
             mo["net_pnl"] = round(mo["net_pnl"], 2)
             mo["is_profitable"] = mo["net_pnl"] > 0
+
+            n = mo["n_trades"]
+            mo["win_rate"] = round(mo["_net_wins"] / n, 4) if n else 0.0
+            gw = mo["_net_gross_wins"]
+            gl = abs(mo["_net_gross_losses"])
+            mo["profit_factor"] = round(gw / gl, 2) if gl > 0 and gw > 0 else None
+
+            # Max drawdown from sequential daily net_pnl (already chronologically ordered).
+            peak = 0.0
+            running = 0.0
+            max_dd = 0.0
+            for dp in month_day_pnls.get(mo_key, []):
+                running += dp
+                if running > peak:
+                    peak = running
+                val = running - peak
+                if val < max_dd:
+                    max_dd = val
+            mo["max_drawdown"] = round(max_dd, 2)
+
+            del mo["_net_wins"], mo["_net_gross_wins"], mo["_net_gross_losses"]
+
+    # --- Final cleanup: remove internal accumulators from day records ---
+    for dd in days.values():
+        del dd["_net_wins"], dd["_net_gross_wins"], dd["_net_gross_losses"]
 
     return {"years": str_years, "days": days}
 

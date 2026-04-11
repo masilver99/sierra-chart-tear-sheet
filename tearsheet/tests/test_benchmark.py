@@ -29,6 +29,8 @@ def test_compute_benchmark_metrics_includes_alpha():
     assert metrics["benchmark_total_return_pct"] == 1.2
     assert metrics["alpha"] == 0.3
     assert metrics["ticker"] == "SPY"
+    assert "treynor_ratio" in metrics
+    assert "m2_ratio" in metrics
 
 
 def test_fetch_benchmark_supports_single_day(monkeypatch):

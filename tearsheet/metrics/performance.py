@@ -52,12 +52,19 @@ def compute_metrics(trades: list[dict[str, Any]], equity_curve: list[dict[str, A
     # Drawdown from equity curve
     max_dd, max_dd_pct, ulcer = _drawdown_stats(equity_curve)
 
-    # Daily returns for Sharpe / Sortino
+    # Daily returns for Sharpe / Sortino / Omega / Upside Potential / CVaR
     daily = _daily_pnl(trades)
     sharpe = _sharpe(daily)
     sortino = _sortino(daily)
+    omega = _omega(daily)
+    cvar_95 = _cvar(daily)
+    b0 = equity_curve[0]["balance"] if equity_curve else None
+    cvar_pct = (abs(cvar_95) / b0) if (cvar_95 is not None and b0 and b0 > 0) else None
+    upside_potential = _upside_potential(daily)
     calmar = _safe_div(total_net, -max_dd) if max_dd else None
     recovery_factor = _safe_div(total_net, abs(max_dd)) if max_dd else None
+    v2 = _v2_ratio(equity_curve)
+    sterling = _sterling(equity_curve, max_dd_pct)
 
     # Streak
     max_consec_win, max_consec_loss = _streaks(pnls)
@@ -168,7 +175,13 @@ def compute_metrics(trades: list[dict[str, Any]], equity_curve: list[dict[str, A
         "ulcer_index": round(ulcer, 4),
         "sharpe_ratio": round(sharpe, 4) if sharpe is not None else None,
         "sortino_ratio": round(sortino, 4) if sortino is not None else None,
+        "omega_ratio": round(omega, 4) if omega is not None else None,
+        "cvar_95": round(cvar_95, 2) if cvar_95 is not None else None,
+        "cvar_pct": round(cvar_pct, 6) if cvar_pct is not None else None,
+        "upside_potential_ratio": round(upside_potential, 4) if upside_potential is not None else None,
+        "sterling_ratio": round(sterling, 4) if sterling is not None else None,
         "calmar_ratio": round(calmar, 4) if calmar is not None else None,
+        "v2_ratio": round(v2, 4) if v2 is not None else None,
         "recovery_factor": round(recovery_factor, 4) if recovery_factor is not None else None,
         "max_consec_wins": max_consec_win,
         "max_consec_losses": max_consec_loss,
@@ -223,7 +236,8 @@ def _empty_metrics() -> dict[str, Any]:
         "n_trades", "total_gross_pnl", "total_fees", "total_net_pnl",
         "win_rate", "avg_win", "avg_loss", "profit_factor", "expectancy",
         "sqn", "max_drawdown", "max_drawdown_pct", "ulcer_index",
-        "sharpe_ratio", "sortino_ratio", "calmar_ratio",
+        "sharpe_ratio", "sortino_ratio", "omega_ratio", "cvar_95", "cvar_pct",
+        "upside_potential_ratio", "sterling_ratio", "calmar_ratio", "v2_ratio",
         "max_consec_wins", "max_consec_losses",
         # Phase 2 extended
         "biggest_winner", "biggest_loser", "payoff_ratio", "gain_to_pain",
@@ -317,6 +331,108 @@ def _sortino(daily: list[float], risk_free: float = 0.0) -> Optional[float]:
     if downside_std == 0:
         return None
     return (mean - risk_free) / downside_std * math.sqrt(252)
+
+
+def _v2_ratio(equity_curve: list[dict]) -> Optional[float]:
+    """V2 ratio: annualised total return divided by (QMRD + 1).
+
+    Uses a cash (0 %) benchmark so V_i = normalised equity = balance_i / balance_0.
+    QMRD equals the Ulcer Index expressed as a fraction.
+    """
+    if len(equity_curve) < 2:
+        return None
+    balances = [float(p["balance"]) for p in equity_curve]
+    b0 = balances[0]
+    if b0 <= 0:
+        return None
+
+    # QMRD = sqrt(mean((v_i / peak_i - 1)^2))  — identical to _drawdown_stats ulcer
+    peak = 1.0
+    sq_sum = 0.0
+    for bal in balances:
+        v = bal / b0
+        if v > peak:
+            peak = v
+        rd = v / peak - 1.0
+        sq_sum += rd * rd
+    qmrd = math.sqrt(sq_sum / len(balances))
+
+    # Annualise via calendar time from equity curve timestamps
+    try:
+        import pandas as pd
+        t0 = pd.Timestamp(equity_curve[0]["DateTime"])
+        tn = pd.Timestamp(equity_curve[-1]["DateTime"])
+        period_years = (tn - t0).total_seconds() / (365.25 * 24.0 * 3600.0)
+    except Exception:
+        period_years = None
+
+    if not period_years or period_years <= 0:
+        period_years = len(balances) / 252.0
+
+    vn = balances[-1] / b0
+    if vn <= 0:
+        return None
+    annualised = vn ** (1.0 / period_years) - 1.0
+    return annualised / (qmrd + 1.0)
+
+
+def _omega(daily: list[float], threshold: float = 0.0) -> Optional[float]:
+    """Omega ratio: sum of gains above threshold / sum of losses below threshold."""
+    gains = sum(d - threshold for d in daily if d > threshold)
+    losses = sum(threshold - d for d in daily if d < threshold)
+    return gains / losses if losses > 0 else None
+
+
+def _cvar(daily: list[float], confidence: float = 0.95) -> Optional[float]:
+    """CVaR (Expected Shortfall): mean of the worst (1-confidence) fraction of daily P&Ls."""
+    if len(daily) < 5:
+        return None
+    n_tail = max(1, int(len(daily) * (1 - confidence)))
+    tail = sorted(daily)[:n_tail]
+    return sum(tail) / len(tail)
+
+
+def _upside_potential(daily: list[float], threshold: float = 0.0) -> Optional[float]:
+    """Upside Potential Ratio: mean upside above threshold / downside deviation below threshold."""
+    n = len(daily)
+    if n < 2:
+        return None
+    gains_sum = sum(d - threshold for d in daily if d > threshold)
+    loss_sq_sum = sum((threshold - d) ** 2 for d in daily if d < threshold)
+    if loss_sq_sum == 0:
+        return None
+    return (gains_sum / n) / math.sqrt(loss_sq_sum / n)
+
+
+def _sterling(equity_curve: list[dict], max_dd_pct: float) -> Optional[float]:
+    """Sterling ratio: annualised return / (max drawdown % + 10% buffer)."""
+    if len(equity_curve) < 2:
+        return None
+    balances = [float(p["balance"]) for p in equity_curve]
+    b0 = balances[0]
+    if b0 <= 0:
+        return None
+
+    try:
+        import pandas as pd
+        t0 = pd.Timestamp(equity_curve[0]["DateTime"])
+        tn = pd.Timestamp(equity_curve[-1]["DateTime"])
+        period_years = (tn - t0).total_seconds() / (365.25 * 24.0 * 3600.0)
+    except Exception:
+        period_years = None
+
+    if not period_years or period_years <= 0:
+        period_years = len(balances) / 252.0
+
+    vn = balances[-1] / b0
+    if vn <= 0:
+        return None
+    annualised = vn ** (1.0 / period_years) - 1.0
+
+    denominator = max_dd_pct + 0.10
+    if denominator <= 0:
+        return None
+    return annualised / denominator
 
 
 def _streaks(pnls: list[float]) -> tuple[int, int]:

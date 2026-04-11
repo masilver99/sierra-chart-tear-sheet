@@ -9,6 +9,8 @@ from typing import Any
 
 import sys
 
+from tearsheet.metrics.montecarlo import run_monte_carlo
+
 import plotly.graph_objects as go
 import plotly.io as pio
 from jinja2 import Environment, FileSystemLoader
@@ -904,6 +906,116 @@ def _daily_distribution_chart(trades: list[dict]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Win Rate Over Time
+# ---------------------------------------------------------------------------
+
+def _win_rate_over_time_chart(segmentation: dict | None) -> str:
+    """Monthly win-rate bar chart, reusing the precomputed by_month segmentation."""
+    by_month: dict = (segmentation or {}).get("by_month") or {}
+    if not by_month:
+        return _empty_chart("No monthly trade data available.")
+
+    months = sorted(by_month.keys())   # "YYYY-MM", lexicographic = chronological
+    win_rates = [round((by_month[mo].get("win_rate") or 0) * 100, 1) for mo in months]
+    n_trades_list = [by_month[mo].get("n_trades", 0) for mo in months]
+    colors = ["#3fb950" if wr >= 50 else "#f85149" for wr in win_rates]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=months,
+        y=win_rates,
+        marker_color=colors,
+        name="Win Rate",
+        text=[f"{wr:.0f}%" for wr in win_rates],
+        textposition="outside",
+        textfont=dict(size=10),
+        customdata=n_trades_list,
+        hovertemplate="Month: %{x}<br>Win Rate: %{y:.1f}%<br>Trades: %{customdata}<extra></extra>",
+    ))
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 280
+    layout["yaxis"] = {"title": "Win Rate (%)", "range": [0, 118], "ticksuffix": "%"}
+    layout["xaxis"] = {"title": "", "tickangle": -45}
+    layout["bargap"] = 0.3
+    fig.update_layout(**layout)
+    fig.add_hline(
+        y=50,
+        line_color="#d29922",
+        line_width=1.5,
+        line_dash="dash",
+        annotation_text="50 %",
+        annotation_position="top right",
+        annotation_font_size=10,
+    )
+    return _div(fig)
+
+
+def _monte_carlo_chart(mc_results: dict) -> str:
+    """Fan chart of bootstrap equity-curve distribution."""
+    if not mc_results or not mc_results.get("percentile_curves"):
+        return _empty_chart("Insufficient data for Monte Carlo simulation (< 5 trades).")
+
+    curves = mc_results["percentile_curves"]
+    actual = mc_results.get("actual_curve", [])
+    n = len(curves.get("p50", [])) - 1
+    if n < 1:
+        return _empty_chart("Insufficient trade data for Monte Carlo simulation.")
+
+    x = list(range(n + 1))
+    fig = go.Figure()
+
+    # Outer band P5–P95
+    fig.add_trace(go.Scatter(
+        x=x, y=curves["p95"], name="P95",
+        mode="lines", line=dict(color="rgba(56,139,253,0.25)", width=1),
+        hovertemplate="Trade %{x}: $%{y:,.0f}<extra>P95</extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, y=curves["p5"], name="P5",
+        mode="lines", line=dict(color="rgba(248,81,73,0.25)", width=1),
+        fill="tonexty", fillcolor="rgba(99,110,123,0.15)",
+        hovertemplate="Trade %{x}: $%{y:,.0f}<extra>P5</extra>",
+    ))
+
+    # Inner band P25–P75
+    fig.add_trace(go.Scatter(
+        x=x, y=curves["p75"], name="P75",
+        mode="lines", line=dict(color="rgba(63,185,80,0.5)", width=1.5),
+        hovertemplate="Trade %{x}: $%{y:,.0f}<extra>P75</extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, y=curves["p25"], name="P25",
+        mode="lines", line=dict(color="rgba(63,185,80,0.5)", width=1.5),
+        fill="tonexty", fillcolor="rgba(63,185,80,0.18)",
+        hovertemplate="Trade %{x}: $%{y:,.0f}<extra>P25</extra>",
+    ))
+
+    # Median
+    fig.add_trace(go.Scatter(
+        x=x, y=curves["p50"], name="Median (P50)",
+        mode="lines", line=dict(color="#d29922", width=2),
+        hovertemplate="Trade %{x}: $%{y:,.0f}<extra>Median</extra>",
+    ))
+
+    # Actual historical overlay
+    if actual:
+        actual_x = list(range(len(actual)))
+        fig.add_trace(go.Scatter(
+            x=actual_x, y=actual, name="Actual",
+            mode="lines", line=dict(color="#58a6ff", width=2.5),
+            hovertemplate="Trade %{x}: $%{y:,.0f}<extra>Actual</extra>",
+        ))
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 340
+    layout["showlegend"] = True
+    layout["legend"] = dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    fig.update_layout(**layout, xaxis_title="Trade Number", yaxis_title="Balance ($)")
+    return _div(fig)
+
+
+# ---------------------------------------------------------------------------
 # Main render function
 # ---------------------------------------------------------------------------
 
@@ -930,6 +1042,11 @@ def render_report(
     tmpl = env.get_template("template.html")
 
     plotly_js = '<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>'
+
+    pnls = [t.get("gross_pnl", 0.0) for t in trades]
+    starting_bal = equity_curve[0]["balance"] if equity_curve else 0.0
+    monte_carlo = run_monte_carlo(pnls, starting_bal) if len(pnls) >= 5 else {}
+    mc_chart = _monte_carlo_chart(monte_carlo)
 
     has_r_multiples = any(t.get("r_multiple") is not None for t in trades)
     segmentation_data = {
@@ -974,6 +1091,7 @@ def render_report(
         win_loss_histogram_chart=_win_loss_histogram_chart(trades),
         exit_type_chart=_exit_type_chart(segmentation_data),
         daily_distribution_chart=_daily_distribution_chart(trades),
+        win_rate_over_time_chart=_win_rate_over_time_chart(segmentation_data),
         rolling_window=20,
         rolling_metrics=rolling_metrics,
         has_r_multiples=has_r_multiples,
@@ -982,6 +1100,8 @@ def render_report(
         plotly_js=plotly_js,
         monthly_summary=monthly_summary,
         sc_statistics=sc_statistics,
+        monte_carlo=monte_carlo,
+        monte_carlo_chart=mc_chart,
     )
 
     Path(output_path).write_text(html, encoding="utf-8")

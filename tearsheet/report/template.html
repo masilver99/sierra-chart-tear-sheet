@@ -211,6 +211,8 @@
     .sqn-scale-bar { background: linear-gradient(to right, #f85149 0%, #d4a020 30%, #3fb950 100%); }
     /* Ulcer Index gradient: green → red (lower is better) */
     .ulcer-scale-bar { background: linear-gradient(to right, #3fb950 0%, #d4a020 50%, #f85149 100%); }
+    /* CVaR (Expected Shortfall) gradient: green → red (lower % of equity = better); scale 0–25% */
+    .cvar-scale-bar { background: linear-gradient(to right, #3fb950 0%, #8bc34a 25%, #d4a020 50%, #f85149 75%, #f85149 100%); }
     /* Profit Factor gradient: red → green (higher is better, 0–10 scale) */
     .pf-scale-bar { background: linear-gradient(to right, #f85149 0%, #d4a020 13%, #3fb950 30%, #56e07f 100%); }
     /* Expectancy gradient: red (neg) → yellow (0–5) → green (5–25) → bright green (25+); scale −10 to 50 */
@@ -223,10 +225,59 @@
     .sharpe-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 40%, #d4a020 50%, #3fb950 70%, #56e07f 100%); }
     /* Sortino ratio gradient: red (<0) → amber (0–1) → light green (1–2) → green (2–3) → bright green (3+); scale −1 to 4 */
     .sortino-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 20%, #d4a020 40%, #8bc34a 60%, #3fb950 80%, #56e07f 100%); }
+    /* Omega ratio gradient: red (<1) → amber (1–1.5) → yellow-green (1.5–2.5) → green (2.5–4) → bright green (4+); scale 0 to 5 */
+    .omega-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 20%, #d4a020 30%, #8bc34a 50%, #3fb950 80%, #56e07f 100%); }
+    /* Upside Potential Ratio: red (<0.5) → amber (0.5–1) → green (1–2) → bright green (2+); scale 0 to 4 */
+    .upr-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 13%, #d4a020 25%, #8bc34a 50%, #3fb950 75%, #56e07f 100%); }
+    /* Sterling ratio gradient: red (<0) → amber (0–0.5) → yellow-green (0.5–1) → green (1–3) → bright green (3+); scale 0 to 6 */
+    .sterling-scale-bar { background: linear-gradient(to right, #f85149 0%, #d4a020 8%, #8bc34a 17%, #3fb950 50%, #56e07f 83%); }
     /* Calmar ratio gradient: red (poor <0.5) → amber (marginal 0.5–1) → light green (good 1–3) → green (excellent 3–5) → bright green (exceptional 5+); scale 0 to 6 */
     .calmar-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 8%, #d4a020 17%, #3fb950 50%, #56e07f 83%); }
+    /* V2 ratio gradient: red (<0) → amber (0–1) → light green (1–2) → green (2–3) → bright green (3+); scale −1 to 4 */
+    .v2-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 20%, #d4a020 40%, #8bc34a 60%, #3fb950 80%, #56e07f 100%); }
     /* Beta gradient: descriptive, scale −1 to +3; blue (inverse <0) → green (neutral 0–0.5) → yellow (tracking 0.5–1.5) → red (high exposure >1.5) */
     .beta-scale-bar { background: linear-gradient(to right, #6b78ff 0%, #3fb950 25%, #d4a020 50%, #f85149 75%, #f85149 100%); }
+    /* Treynor ratio gradient: red (<0) → amber (0–0.5) → yellow-green (0.5–1.5) → green (1.5–3) → bright green (3+); scale −1 to 5 */
+    .treynor-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 17%, #d4a020 25%, #8bc34a 42%, #3fb950 67%, #56e07f 100%); }
+    /* M² gradient: red (<0%) → amber (0–5%) → yellow-green (5–15%) → green (15–25%) → bright green (25%+); scale −10 to 40 ppt */
+    .m2-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 20%, #d4a020 30%, #8bc34a 50%, #3fb950 70%, #56e07f 100%); }
+    /* Payoff Ratio gradient: red (<1) → amber (1–1.5) → green (1.5–2.5) → bright green (2.5+); scale 0–5 */
+    .payoff-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 20%, #d4a020 30%, #3fb950 50%, #56e07f 100%); }
+    /* Gain-to-Pain gradient: red (<0.5) → amber (0.5–1) → yellow-green (1–2) → green (2–3) → bright green (3+); scale 0–4 */
+    .gtp-scale-bar { background: linear-gradient(to right, #f85149 0%, #d4a020 25%, #8bc34a 50%, #3fb950 75%, #56e07f 100%); }
+    /* Section search */
+    .sec-search-wrap { position: relative; margin-left: auto; flex-shrink: 0; }
+    .sec-search-input {
+      width: 220px; padding: 6px 12px;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; outline: none;
+      transition: border-color .15s;
+    }
+    .sec-search-input:focus, .sec-search-input.active { border-color: var(--blue); }
+    .sec-search-input::placeholder { color: var(--muted); }
+    .sec-search-dropdown {
+      position: absolute; top: calc(100% + 4px); right: 0;
+      min-width: 260px; max-height: 400px; overflow-y: auto;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      z-index: 500; display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    }
+    .sec-search-dropdown.open { display: block; }
+    .sec-search-item {
+      display: block; padding: 7px 14px;
+      font-size: 12px; color: var(--muted); text-decoration: none;
+      cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.04);
+      transition: background .1s, color .1s;
+    }
+    .sec-search-item:last-child { border-bottom: none; }
+    .sec-search-item:hover, .sec-search-item:focus { background: rgba(255,255,255,.06); color: var(--text); outline: none; }
+    .sec-search-item mark { background: transparent; color: var(--blue); font-weight: 600; }
+    .sec-search-item.sec-search-section { color: var(--text); font-weight: 600; }
+    .sec-search-item.sec-search-card { padding-left: 22px; }
+    .sec-search-item-label { display: block; }
+    .sec-search-item-ctx { display: block; font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .sec-search-empty { padding: 10px 14px; font-size: 12px; color: var(--muted); font-style: italic; }
   </style>
   {{ plotly_js | safe }}
 </head>
@@ -240,8 +291,16 @@
 </div>
 <button id="sidebar-btn" onclick="toggleSidebar()" title="Toggle section navigation">&#9776;</button>
 <header>
-  <h1>📊 Trade Tear Sheet</h1>
-  <p>Generated {{ report_date }} &nbsp;·&nbsp; {{ source_file }} &nbsp;·&nbsp; {{ metrics.n_trades }} completed trades</p>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <h1>📊 Trade Tear Sheet</h1>
+      <p>Generated {{ report_date }} &nbsp;·&nbsp; {{ source_file }} &nbsp;·&nbsp; {{ metrics.n_trades }} completed trades</p>
+    </div>
+    <div class="sec-search-wrap" id="sec-search-wrap">
+      <input class="sec-search-input" id="sec-search-input" type="search" placeholder="Jump to section…" autocomplete="off" spellcheck="false" />
+      <div class="sec-search-dropdown" id="sec-search-dropdown"></div>
+    </div>
+  </div>
 </header>
 <main>
   <h2 id="sec-kpi">Key Performance Indicators</h2>
@@ -354,6 +413,64 @@
       {% endif %}
     </div>
     <div class="kpi">
+      <div class="label kpi-label-row">Omega<span class="kpi-help"><a href="https://www.investopedia.com/terms/o/omega-ratio.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Omega ratio captures the full return distribution: sum of daily gains above zero divided by sum of daily losses below zero. Unlike Sharpe, it accounts for skewness and kurtosis. Below 1.0 is Losing; 1.0–1.5 is Below Average; 1.5–2.5 is Good; 2.5–4.0 is Very Good; above 4.0 is Excellent.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.omega_ratio) if metrics.omega_ratio is not none else "—" }}</div>
+      {% if metrics.omega_ratio is not none %}
+      {% set _om_max = 5.0 %}
+      {% if metrics.omega_ratio < 0 %}{% set _om_clamped = 0.0 %}{% elif metrics.omega_ratio > _om_max %}{% set _om_clamped = _om_max %}{% else %}{% set _om_clamped = metrics.omega_ratio %}{% endif %}
+      {% set _om_pct = (_om_clamped / _om_max * 100) | round(1) %}
+      {% if metrics.omega_ratio < 1.0 %}{% set _om_tier = "Losing" %}
+      {% elif metrics.omega_ratio < 1.5 %}{% set _om_tier = "Below Average" %}
+      {% elif metrics.omega_ratio < 2.5 %}{% set _om_tier = "Good" %}
+      {% elif metrics.omega_ratio < 4.0 %}{% set _om_tier = "Very Good" %}
+      {% else %}{% set _om_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _om_pct }}%"></div></div>
+        <div class="kpi-scale-bar omega-scale-bar"></div>
+        <div class="kpi-tier">{{ _om_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Upside Potential<span class="kpi-help"><a href="https://en.wikipedia.org/wiki/Upside_potential_ratio" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Upside Potential Ratio (UPR) compares the average daily gain above zero to the downside deviation below zero. It rewards asymmetric returns: strategies that win bigger than they lose score highly. Below 0.5 is Poor; 0.5–1.0 is Below Average; 1.0–2.0 is Good; 2.0–3.0 is Very Good; above 3.0 is Excellent.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.upside_potential_ratio) if metrics.upside_potential_ratio is not none else "—" }}</div>
+      {% if metrics.upside_potential_ratio is not none %}
+      {% set _upr_max = 4.0 %}
+      {% if metrics.upside_potential_ratio < 0 %}{% set _upr_clamped = 0.0 %}{% elif metrics.upside_potential_ratio > _upr_max %}{% set _upr_clamped = _upr_max %}{% else %}{% set _upr_clamped = metrics.upside_potential_ratio %}{% endif %}
+      {% set _upr_pct = (_upr_clamped / _upr_max * 100) | round(1) %}
+      {% if metrics.upside_potential_ratio < 0.5 %}{% set _upr_tier = "Poor" %}
+      {% elif metrics.upside_potential_ratio < 1.0 %}{% set _upr_tier = "Below Average" %}
+      {% elif metrics.upside_potential_ratio < 2.0 %}{% set _upr_tier = "Good" %}
+      {% elif metrics.upside_potential_ratio < 3.0 %}{% set _upr_tier = "Very Good" %}
+      {% else %}{% set _upr_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _upr_pct }}%"></div></div>
+        <div class="kpi-scale-bar upr-scale-bar"></div>
+        <div class="kpi-tier">{{ _upr_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Sterling<span class="kpi-help"><a href="https://www.investopedia.com/terms/s/sterling-ratio.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Sterling ratio measures annualised return relative to drawdown risk, using max drawdown % plus a 10% buffer as the denominator. This buffer makes it more conservative than Calmar. Below 0 is Negative; 0–0.5 is Poor; 0.5–1.0 is Below Average; 1.0–3.0 is Good; 3.0–5.0 is Excellent; above 5.0 is Exceptional.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.sterling_ratio) if metrics.sterling_ratio is not none else "—" }}</div>
+      {% if metrics.sterling_ratio is not none %}
+      {% set _st_max = 6.0 %}
+      {% if metrics.sterling_ratio < 0 %}{% set _st_clamped = 0.0 %}{% elif metrics.sterling_ratio > _st_max %}{% set _st_clamped = _st_max %}{% else %}{% set _st_clamped = metrics.sterling_ratio %}{% endif %}
+      {% set _st_pct = (_st_clamped / _st_max * 100) | round(1) %}
+      {% if metrics.sterling_ratio < 0 %}{% set _st_tier = "Negative" %}
+      {% elif metrics.sterling_ratio < 0.5 %}{% set _st_tier = "Poor" %}
+      {% elif metrics.sterling_ratio < 1.0 %}{% set _st_tier = "Below Average" %}
+      {% elif metrics.sterling_ratio < 3.0 %}{% set _st_tier = "Good" %}
+      {% elif metrics.sterling_ratio < 5.0 %}{% set _st_tier = "Excellent" %}
+      {% else %}{% set _st_tier = "Exceptional" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _st_pct }}%"></div></div>
+        <div class="kpi-scale-bar sterling-scale-bar"></div>
+        <div class="kpi-tier">{{ _st_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="kpi">
       <div class="label kpi-label-row">Calmar<span class="kpi-help"><a href="https://www.investopedia.com/terms/c/calmarratio.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Calmar ratio measures annualised return relative to maximum drawdown. Below 0.5 is Poor; 0.5–1.0 is Marginal; above 1.0 is Good; 3.0–5.0 is Excellent; above 5.0 is Exceptional.</span></span></div>
       <div class="value">{{ "{:.2f}".format(metrics.calmar_ratio) if metrics.calmar_ratio is not none else "—" }}</div>
       {% if metrics.calmar_ratio is not none %}
@@ -369,6 +486,26 @@
         <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _ca_pct }}%"></div></div>
         <div class="kpi-scale-bar calmar-scale-bar"></div>
         <div class="kpi-tier">{{ _ca_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">V2 Ratio<span class="kpi-help"><a href="https://en.wikipedia.org/wiki/V2_ratio" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The V2 ratio measures annualised return per unit of drawdown risk (QMRD + 1). Below 0 is Negative; 0–1 is Suboptimal; 1–2 is Good; 2–3 is Very Good; 3+ is Excellent.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.v2_ratio) if metrics.v2_ratio is not none else "—" }}</div>
+      {% if metrics.v2_ratio is not none %}
+      {% set _v2_min = -1.0 %}
+      {% set _v2_max = 4.0 %}
+      {% if metrics.v2_ratio < _v2_min %}{% set _v2_clamped = _v2_min %}{% elif metrics.v2_ratio > _v2_max %}{% set _v2_clamped = _v2_max %}{% else %}{% set _v2_clamped = metrics.v2_ratio %}{% endif %}
+      {% set _v2_pct = ((_v2_clamped - _v2_min) / (_v2_max - _v2_min) * 100) | round(1) %}
+      {% if metrics.v2_ratio < 0 %}{% set _v2_tier = "Negative" %}
+      {% elif metrics.v2_ratio < 1.0 %}{% set _v2_tier = "Suboptimal" %}
+      {% elif metrics.v2_ratio < 2.0 %}{% set _v2_tier = "Good" %}
+      {% elif metrics.v2_ratio < 3.0 %}{% set _v2_tier = "Very Good" %}
+      {% else %}{% set _v2_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _v2_pct }}%"></div></div>
+        <div class="kpi-scale-bar v2-scale-bar"></div>
+        <div class="kpi-tier">{{ _v2_tier }}</div>
       </div>
       {% endif %}
     </div>
@@ -390,6 +527,26 @@
       </div>
       {% endif %}
     </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">CVaR 95%<span class="kpi-help"><a href="https://www.investopedia.com/terms/c/conditional_value_at_risk.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">CVaR (Conditional Value at Risk / Expected Shortfall at 95%) is the average daily P&amp;L on your worst 5% of trading days. It is a coherent risk measure that captures true tail risk—unlike VaR it does not ignore what happens beyond the threshold. Lower absolute value is better. The gauge shows CVaR as a percentage of starting equity: &lt;1% is Very Low Risk; 1–3% Low; 3–8% Moderate; 8–15% High; &gt;15% Very High.</span></span></div>
+      <div class="value neg">{{ "${:,.2f}".format(metrics.cvar_95) if metrics.cvar_95 is not none else "—" }}</div>
+      {% if metrics.cvar_pct is not none %}
+      {% set _cv_scale = 25.0 %}
+      {% set _cv_pct_val = metrics.cvar_pct * 100 %}
+      {% if _cv_pct_val > _cv_scale %}{% set _cv_clamped = _cv_scale %}{% else %}{% set _cv_clamped = _cv_pct_val %}{% endif %}
+      {% set _cv_needle = (_cv_clamped / _cv_scale * 100) | round(1) %}
+      {% if _cv_pct_val < 1.0 %}{% set _cv_tier = "Very Low Risk" %}
+      {% elif _cv_pct_val < 3.0 %}{% set _cv_tier = "Low Risk" %}
+      {% elif _cv_pct_val < 8.0 %}{% set _cv_tier = "Moderate Risk" %}
+      {% elif _cv_pct_val < 15.0 %}{% set _cv_tier = "High Risk" %}
+      {% else %}{% set _cv_tier = "Very High Risk" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _cv_needle }}%"></div></div>
+        <div class="kpi-scale-bar cvar-scale-bar"></div>
+        <div class="kpi-tier">{{ _cv_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
     <div class="kpi"><div class="label">Consec. Wins</div><div class="value">{{ metrics.max_consec_wins }}</div></div>
     <div class="kpi"><div class="label">Consec. Losses</div><div class="value">{{ metrics.max_consec_losses }}</div></div>
   </div>
@@ -398,8 +555,45 @@
   <div class="kpi-grid">
     <div class="kpi"><div class="label">Biggest Winner</div><div class="value pos">{{ "${:,.2f}".format(metrics.biggest_winner) if metrics.biggest_winner is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Biggest Loser</div><div class="value neg">{{ "${:,.2f}".format(metrics.biggest_loser) if metrics.biggest_loser is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Payoff Ratio</div><div class="value">{{ "{:.2f}".format(metrics.payoff_ratio) if metrics.payoff_ratio is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Gain-to-Pain</div><div class="value">{{ "{:.2f}".format(metrics.gain_to_pain) if metrics.gain_to_pain is not none else "—" }}</div></div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Payoff Ratio<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Payoff Ratio (R) is the average winning trade divided by the absolute average losing trade. Above 1.5 is good; above 2.5 is very strong. At R=2 you only need a 33% win rate to break even.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.payoff_ratio) if metrics.payoff_ratio is not none else "—" }}</div>
+      {% if metrics.payoff_ratio is not none %}
+      {% set _pr_max = 5.0 %}
+      {% if metrics.payoff_ratio < 0 %}{% set _pr_clamped = 0.0 %}{% elif metrics.payoff_ratio > _pr_max %}{% set _pr_clamped = _pr_max %}{% else %}{% set _pr_clamped = metrics.payoff_ratio %}{% endif %}
+      {% set _pr_pct = (_pr_clamped / _pr_max * 100) | round(1) %}
+      {% if metrics.payoff_ratio < 1.0 %}{% set _pr_tier = "Poor" %}
+      {% elif metrics.payoff_ratio < 1.5 %}{% set _pr_tier = "Marginal" %}
+      {% elif metrics.payoff_ratio < 2.5 %}{% set _pr_tier = "Good" %}
+      {% elif metrics.payoff_ratio < 4.0 %}{% set _pr_tier = "Very Good" %}
+      {% else %}{% set _pr_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _pr_pct }}%"></div></div>
+        <div class="kpi-scale-bar payoff-scale-bar"></div>
+        <div class="kpi-tier">{{ _pr_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Gain-to-Pain<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Gain-to-Pain Ratio (Martin ratio) is total net return divided by the sum of absolute drawdowns. Above 1.0 means gains outpace cumulative pain; above 2.0 is very good; above 3.0 is excellent.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.gain_to_pain) if metrics.gain_to_pain is not none else "—" }}</div>
+      {% if metrics.gain_to_pain is not none %}
+      {% set _gtp_max = 4.0 %}
+      {% if metrics.gain_to_pain < 0 %}{% set _gtp_clamped = 0.0 %}{% elif metrics.gain_to_pain > _gtp_max %}{% set _gtp_clamped = _gtp_max %}{% else %}{% set _gtp_clamped = metrics.gain_to_pain %}{% endif %}
+      {% set _gtp_pct = (_gtp_clamped / _gtp_max * 100) | round(1) %}
+      {% if metrics.gain_to_pain < 0 %}{% set _gtp_tier = "Negative" %}
+      {% elif metrics.gain_to_pain < 0.5 %}{% set _gtp_tier = "Poor" %}
+      {% elif metrics.gain_to_pain < 1.0 %}{% set _gtp_tier = "Marginal" %}
+      {% elif metrics.gain_to_pain < 2.0 %}{% set _gtp_tier = "Good" %}
+      {% elif metrics.gain_to_pain < 3.0 %}{% set _gtp_tier = "Very Good" %}
+      {% else %}{% set _gtp_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _gtp_pct }}%"></div></div>
+        <div class="kpi-scale-bar gtp-scale-bar"></div>
+        <div class="kpi-tier">{{ _gtp_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
     <div class="kpi"><div class="label">Avg Duration</div><div class="value">{{ metrics.avg_duration_s | format_duration }}</div></div>
     <div class="kpi"><div class="label">Avg Win Duration</div><div class="value">{{ metrics.avg_duration_winners_s | format_duration }}</div></div>
     <div class="kpi"><div class="label">Avg Loss Duration</div><div class="value">{{ metrics.avg_duration_losers_s | format_duration }}</div></div>
@@ -492,6 +686,51 @@
   <h2 id="sec-returns">Returns</h2>
   <div class="chart-wrapper">{{ returns_chart | safe }}</div>
 
+  <h2 id="sec-montecarlo">Monte Carlo Simulation</h2>
+  {% if monte_carlo and monte_carlo.stats %}
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">
+    Bootstrap resampling of {{ monte_carlo.stats.n_trades }} trades &times; {{ "{:,}".format(monte_carlo.stats.n_sims) }} simulations.
+    Assumes trade independence; order effects are not modelled.
+  </p>
+  <div class="kpi-grid" style="margin-bottom:12px">
+    <div class="kpi">
+      <div class="label kpi-label-row">Simulations<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Number of bootstrap simulations run. Each simulation randomly resamples your actual trades (with replacement) to produce an alternative equity curve. The distribution of those curves forms the fan chart below.</span></span></div>
+      <div class="value">{{ "{:,}".format(monte_carlo.stats.n_sims) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Median Final Balance<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The median ending account balance across all simulated paths. Half of all simulated outcomes end above this value, half below. A higher median vs. starting balance indicates a robust edge.</span></span></div>
+      <div class="value {{ 'pos' if monte_carlo.stats.median_final >= monte_carlo.stats.starting_balance else 'neg' }}">${{ "{:,.0f}".format(monte_carlo.stats.median_final) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">P5 Final (Worst 5%)<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The 5th-percentile ending balance — the outcome worse than 95% of simulated paths. Represents a plausible bad-luck scenario without being the absolute worst case.</span></span></div>
+      <div class="value {{ 'pos' if monte_carlo.stats.p5_final >= monte_carlo.stats.starting_balance else 'neg' }}">${{ "{:,.0f}".format(monte_carlo.stats.p5_final) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">P95 Final (Best 5%)<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The 95th-percentile ending balance — the outcome better than 95% of simulated paths. Represents a plausible good-luck scenario, not the absolute best case.</span></span></div>
+      <div class="value {{ 'pos' if monte_carlo.stats.p95_final >= monte_carlo.stats.starting_balance else 'neg' }}">${{ "{:,.0f}".format(monte_carlo.stats.p95_final) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Median Max Drawdown<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The median peak-to-trough drawdown (% of equity) across all simulated paths. Indicates the drawdown you should typically expect from your strategy given its historical trade distribution.</span></span></div>
+      <div class="value {{ 'neg' if monte_carlo.stats.median_max_dd_pct > 10 else 'neutral' }}">{{ "{:.1f}%".format(monte_carlo.stats.median_max_dd_pct) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">P95 Max Drawdown<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The 95th-percentile maximum drawdown across all simulated paths — the drawdown exceeded in only 5% of scenarios. A conservative stress-test estimate of how bad drawdowns could get.</span></span></div>
+      <div class="value neg">{{ "{:.1f}%".format(monte_carlo.stats.p95_max_dd_pct) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Ruin Probability (&gt;{{ monte_carlo.stats.ruin_threshold_pct }}% DD)<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Percentage of simulated paths that hit a {{ monte_carlo.stats.ruin_threshold_pct }}% max drawdown at some point (the "ruin threshold"). Even a small probability here warrants position-sizing review.</span></span></div>
+      <div class="value {{ 'neg' if monte_carlo.stats.ruin_probability > 5 else 'pos' }}">{{ "{:.1f}%".format(monte_carlo.stats.ruin_probability) }}</div>
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Probability of Profit<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Percentage of simulated paths that end with a higher balance than they started with. High values (above 70%) indicate a robust positive expectancy edge.</span></span></div>
+      <div class="value {{ 'pos' if monte_carlo.stats.prob_profit >= 70 else ('neutral' if monte_carlo.stats.prob_profit >= 50 else 'neg') }}">{{ "{:.1f}%".format(monte_carlo.stats.prob_profit) }}</div>
+    </div>
+  </div>
+  <div class="chart-wrapper">{{ monte_carlo_chart | safe }}</div>
+  {% else %}
+  <p style="color:#8b949e;font-size:0.85rem;margin:0 0 10px">Monte Carlo simulation requires at least 5 trades.</p>
+  {% endif %}
+
     {% if benchmark_metrics %}
   <h2 id="sec-benchmark">Benchmark Comparison (S&amp;P 500 / {{ benchmark_metrics.ticker or "SPY" }})</h2>
   <div class="kpi-grid" style="margin-bottom:12px">
@@ -554,6 +793,46 @@
       <div class="value {{ 'pos' if benchmark_metrics.alpha_annualized >= 0 else 'neg' }}">
       {{ "{:.2f}%".format(benchmark_metrics.alpha_annualized * 100) }}</div></div>
     <div class="kpi"><div class="label">Correlation</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.correlation) }}</div></div>
+    {% if benchmark_metrics.treynor_ratio is defined and benchmark_metrics.treynor_ratio is not none %}
+    <div class="kpi">
+      <div class="label kpi-label-row">Treynor<span class="kpi-help"><a href="https://www.investopedia.com/terms/t/treynorratio.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Treynor ratio measures annualised excess return per unit of market risk (β). It rewards strategies that generate high returns without taking on unnecessary market exposure. Below 0 is Negative; 0–0.5 is Suboptimal; 0.5–1.5 is Good; 1.5–3.0 is Very Good; above 3.0 is Excellent.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(benchmark_metrics.treynor_ratio) }}</div>
+      {% set _tr_min = -1.0 %}
+      {% set _tr_max = 5.0 %}
+      {% if benchmark_metrics.treynor_ratio < _tr_min %}{% set _tr_clamped = _tr_min %}{% elif benchmark_metrics.treynor_ratio > _tr_max %}{% set _tr_clamped = _tr_max %}{% else %}{% set _tr_clamped = benchmark_metrics.treynor_ratio %}{% endif %}
+      {% set _tr_pct = ((_tr_clamped - _tr_min) / (_tr_max - _tr_min) * 100) | round(1) %}
+      {% if benchmark_metrics.treynor_ratio < 0 %}{% set _tr_tier = "Negative" %}
+      {% elif benchmark_metrics.treynor_ratio < 0.5 %}{% set _tr_tier = "Suboptimal" %}
+      {% elif benchmark_metrics.treynor_ratio < 1.5 %}{% set _tr_tier = "Good" %}
+      {% elif benchmark_metrics.treynor_ratio < 3.0 %}{% set _tr_tier = "Very Good" %}
+      {% else %}{% set _tr_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _tr_pct }}%"></div></div>
+        <div class="kpi-scale-bar treynor-scale-bar"></div>
+        <div class="kpi-tier">{{ _tr_tier }}</div>
+      </div>
+    </div>
+    {% endif %}
+    {% if benchmark_metrics.m2_ratio is defined and benchmark_metrics.m2_ratio is not none %}
+    <div class="kpi">
+      <div class="label kpi-label-row">M² (RAP)<span class="kpi-help"><a href="https://www.investopedia.com/terms/m/m2.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">Modigliani Risk-Adjusted Performance (M²) scales the strategy's return to match the market's volatility, expressing outperformance in percentage points. It shows what the strategy would have returned with the same risk as the market. Below 0% is Negative; 0–5% is Suboptimal; 5–15% is Good; 15–25% is Very Good; above 25% is Excellent.</span></span></div>
+      <div class="value {{ 'pos' if benchmark_metrics.m2_ratio >= 0 else 'neg' }}">{{ "{:.2f}%".format(benchmark_metrics.m2_ratio) }}</div>
+      {% set _m2_min = -10.0 %}
+      {% set _m2_max = 40.0 %}
+      {% if benchmark_metrics.m2_ratio < _m2_min %}{% set _m2_clamped = _m2_min %}{% elif benchmark_metrics.m2_ratio > _m2_max %}{% set _m2_clamped = _m2_max %}{% else %}{% set _m2_clamped = benchmark_metrics.m2_ratio %}{% endif %}
+      {% set _m2_pct = ((_m2_clamped - _m2_min) / (_m2_max - _m2_min) * 100) | round(1) %}
+      {% if benchmark_metrics.m2_ratio < 0 %}{% set _m2_tier = "Negative" %}
+      {% elif benchmark_metrics.m2_ratio < 5 %}{% set _m2_tier = "Suboptimal" %}
+      {% elif benchmark_metrics.m2_ratio < 15 %}{% set _m2_tier = "Good" %}
+      {% elif benchmark_metrics.m2_ratio < 25 %}{% set _m2_tier = "Very Good" %}
+      {% else %}{% set _m2_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _m2_pct }}%"></div></div>
+        <div class="kpi-scale-bar m2-scale-bar"></div>
+        <div class="kpi-tier">{{ _m2_tier }}</div>
+      </div>
+    </div>
+    {% endif %}
     {% endif %}
   </div>
   <div class="chart-wrapper"></div>
@@ -565,6 +844,9 @@
 
   <h2 id="sec-rolling">Rolling Analytics ({{ rolling_window }}-Trade Window)</h2>
   <div class="chart-wrapper">{{ rolling_chart | safe }}</div>
+
+  <h2 id="sec-win-rate">Win Rate Over Time</h2>
+  <div class="chart-wrapper">{{ win_rate_over_time_chart | safe }}</div>
 
   <h2 id="sec-daily-pnl">Daily P&amp;L</h2>
   <div class="chart-wrapper">{{ daily_pnl_chart | safe }}</div>
@@ -783,7 +1065,11 @@
         html+='<div class="cal-month-grid">';
         for(var m=1;m<=12;m++){
           var md=yd.months[String(m)];
-          if(md){var mc=md.is_profitable?'cal-month-box profitable':'cal-month-box unprofitable';html+='<div class="'+mc+'" style="background-color:'+pnlBg(md.net_pnl,monthMax)+'" onclick="calShowMonth(\''+yr+'\','+m+')"><div class="cal-mname">'+MS[m-1]+'</div><div class="cal-mpnl '+(md.is_profitable?'pos':'neg')+'">'+fmtMoney(md.net_pnl)+'</div><div class="cal-mmeta">'+md.n_trades+'T &middot; '+md.n_days+'d</div></div>';}
+          if(md){var mc=md.is_profitable?'cal-month-box profitable':'cal-month-box unprofitable';
+            var mwr=md.win_rate!=null?((md.win_rate*100).toFixed(0)+'%W'):'—';
+            var mpf=md.profit_factor!=null?('PF\u202f'+md.profit_factor.toFixed(2)):'—';
+            var mdd=md.max_drawdown!=null&&md.max_drawdown<0?'<div class="cal-mmeta neg">DD\u202f'+fmtMoney(md.max_drawdown)+'</div>':'';
+            html+='<div class="'+mc+'" style="background-color:'+pnlBg(md.net_pnl,monthMax)+'" onclick="calShowMonth(\''+yr+'\','+m+')"><div class="cal-mname">'+MS[m-1]+'</div><div class="cal-mpnl '+(md.is_profitable?'pos':'neg')+'">'+fmtMoney(md.net_pnl)+'</div><div class="cal-mmeta">'+md.n_trades+'T &middot; '+md.n_days+'d</div><div class="cal-mmeta">'+mwr+' &middot; '+mpf+'</div>'+mdd+'</div>';}
           else{html+='<div class="cal-month-box empty"><div class="cal-mname">'+MS[m-1]+'</div></div>';}
         }
         html+='</div>';
@@ -794,7 +1080,12 @@
       var yd=calData.years[yr]||{},md=yd.months&&yd.months[String(m)];
       var dim=new Date(+yr,+m,0).getDate(),fdow=new Date(+yr,m-1,1).getDay();
       var hdr='<div class="cal-nav"><button class="cal-back-btn" onclick="calBackToYear()">&#8592; All Years</button><span class="cal-month-title">'+ML[m-1]+' '+yr+'</span>';
-      if(md)hdr+='<span class="'+(md.is_profitable?'pos':'neg')+'">'+fmtMoney(md.net_pnl)+' &nbsp;&middot;&nbsp; '+md.n_trades+' trades &nbsp;&middot;&nbsp; '+md.n_days+' days</span>';
+      if(md){
+        var mwrh=md.win_rate!=null?(' &nbsp;&middot;&nbsp; '+(md.win_rate*100).toFixed(0)+'% win'):'';
+        var mpfh=md.profit_factor!=null?(' &nbsp;&middot;&nbsp; PF\u202f'+md.profit_factor.toFixed(2)):'';
+        var mddh=md.max_drawdown!=null&&md.max_drawdown<0?(' &nbsp;&middot;&nbsp; <span class="neg">DD\u202f'+fmtMoney(md.max_drawdown)+'</span>'):'';
+        hdr+='<span class="'+(md.is_profitable?'pos':'neg')+'">'+fmtMoney(md.net_pnl)+' &nbsp;&middot;&nbsp; '+md.n_trades+' trades &nbsp;&middot;&nbsp; '+md.n_days+' days'+mwrh+mpfh+mddh+'</span>';
+      }
       hdr+='</div>';
       var tbl='<table class="cal-day-table"><thead><tr>';
       DH.forEach(function(d){tbl+='<th>'+d+'</th>';});
@@ -810,7 +1101,12 @@
           if(day==null){tbl+='<td class="cal-day-empty"></td>';}
           else{
             var ds=yr+'-'+pad2(m)+'-'+pad2(day),dd=calData.days[ds];
-            if(dd){var ia=state.activeDay===ds,dc='cal-day-cell trading '+(dd.is_profitable?'win':'loss')+(ia?' active':'');var _bg=ia?'background-color:rgba(88,166,255,.08)':'background-color:'+pnlBg(dd.net_pnl,dayMax);tbl+='<td class="'+dc+'" style="'+_bg+'" onclick="calToggleDay(\''+ds+'\')"><div class="cal-daynum">'+day+'</div><div class="cal-daypnl '+(dd.is_profitable?'pos':'neg')+'">'+fmtMoney(dd.net_pnl)+'</div><div class="cal-daymeta">'+dd.n_trades+'T</div></td>';}
+            if(dd){var ia=state.activeDay===ds,dc='cal-day-cell trading '+(dd.is_profitable?'win':'loss')+(ia?' active':'');var _bg=ia?'background-color:rgba(88,166,255,.08)':'background-color:'+pnlBg(dd.net_pnl,dayMax);
+              var dwr=dd.win_rate!=null?((dd.win_rate*100).toFixed(0)+'%W'):'';
+              var dpf=dd.profit_factor!=null?('PF'+dd.profit_factor.toFixed(1)):'';
+              var dstats=[dwr,dpf].filter(Boolean).join('\u202f');
+              var ddd=dd.max_drawdown!=null&&dd.max_drawdown<0?'<div class="cal-daymeta neg">DD\u202f'+fmtMoney(dd.max_drawdown)+'</div>':'';
+              tbl+='<td class="'+dc+'" style="'+_bg+'" onclick="calToggleDay(\''+ds+'\')"><div class="cal-daynum">'+day+'</div><div class="cal-daypnl '+(dd.is_profitable?'pos':'neg')+'">'+fmtMoney(dd.net_pnl)+'</div><div class="cal-daymeta">'+dd.n_trades+'T'+(dstats?' &middot; '+dstats:'')+'</div>'+ddd+'</td>';}
             else{tbl+='<td class="cal-day-cell inactive"><div class="cal-daynum">'+day+'</div></td>';}
           }
         }
@@ -824,7 +1120,9 @@
       var dd=calData.days[ds],de=document.getElementById('cal-day-detail');
       if(!dd||!de)return;
       var dc=dd.is_profitable?'pos':'neg';
-      var html='<div class="cal-day-trades-header"><span>'+ds+'</span><span class="'+dc+'">'+fmtMoney(dd.net_pnl)+'</span><span class="cal-muted">'+dd.n_trades+' trade'+(dd.n_trades!==1?'s':'')+' &middot; '+(dd.win_rate*100).toFixed(0)+'% win</span></div>';
+      var dpfh=dd.profit_factor!=null?(' &middot; PF\u202f'+dd.profit_factor.toFixed(2)):'';
+      var dddh=dd.max_drawdown!=null&&dd.max_drawdown<0?(' &middot; <span class="neg">DD\u202f'+fmtMoney(dd.max_drawdown)+'</span>'):'';
+      var html='<div class="cal-day-trades-header"><span>'+ds+'</span><span class="'+dc+'">'+fmtMoney(dd.net_pnl)+'</span><span class="cal-muted">'+dd.n_trades+' trade'+(dd.n_trades!==1?'s':'')+' &middot; '+(dd.win_rate*100).toFixed(0)+'% win'+dpfh+dddh+'</span></div>';
       html+='<div class="cal-trades-scroll"><table class="cal-trade-table"><thead><tr><th>#</th><th>Sym</th><th>Dir</th><th>Entry</th><th>Exit</th><th>Dur</th><th>Qty</th><th>In</th><th>Out</th><th>Gross P&amp;L</th><th>Fees</th><th>Net P&amp;L</th><th>MFE</th><th>MAE</th><th>Exit</th><th>Note</th><th>E.Chase</th><th>X.Chase</th><th>Stop</th><th>Risk</th><th>R</th></tr></thead><tbody>';
       dd.trades.forEach(function(t){
         var tc=t.gross_pnl>=0?'win':'loss',rc=t.r_multiple!=null?(t.r_multiple>=0?'win':'loss'):'';
@@ -1289,6 +1587,96 @@
     taxInput.addEventListener('change',updatePeriodSummaryTaxes);
     updatePeriodSummaryTaxes();
   }
+})();
+
+// Section search
+(function(){
+  var wrap=document.getElementById('sec-search-wrap');
+  var input=document.getElementById('sec-search-input');
+  var dropdown=document.getElementById('sec-search-dropdown');
+  if(!wrap||!input||!dropdown) return;
+
+  // Collect sections (h2) + KPI cards + segmentation cards in document order
+  var items=[];
+  var curSection='';
+  document.querySelectorAll('main h2[id], main .kpi, main .seg-card').forEach(function(el){
+    if(el.tagName==='H2'){
+      var txt='';
+      el.childNodes.forEach(function(n){if(n.nodeType===3)txt+=n.textContent;});
+      txt=txt.trim();
+      if(txt){curSection=txt;items.push({label:txt,context:'',el:el,type:'section'});}
+    } else if(el.classList.contains('kpi')){
+      var labelEl=el.querySelector('.label');
+      if(!labelEl) return;
+      var txt='';
+      labelEl.childNodes.forEach(function(n){if(n.nodeType===3)txt+=n.textContent;});
+      txt=txt.trim();
+      if(txt) items.push({label:txt,context:curSection,el:el,type:'card'});
+    } else if(el.classList.contains('seg-card')){
+      var h3=el.querySelector('h3');
+      if(!h3) return;
+      var txt=h3.textContent.trim();
+      if(txt) items.push({label:txt,context:curSection,el:el,type:'card'});
+    }
+  });
+
+  function escHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function highlight(text,q){
+    if(!q) return escHtml(text);
+    var lo=text.toLowerCase();
+    var idx=lo.indexOf(q);
+    if(idx===-1) return escHtml(text);
+    return escHtml(text.slice(0,idx))+'<mark>'+escHtml(text.slice(idx,idx+q.length))+'</mark>'+escHtml(text.slice(idx+q.length));
+  }
+
+  function buildItems(query){
+    dropdown.innerHTML='';
+    var q=query.toLowerCase().trim();
+    var matched=items.filter(function(s){return !q||s.label.toLowerCase().indexOf(q)!==-1;});
+    if(!matched.length){
+      var em=document.createElement('div');
+      em.className='sec-search-empty';
+      em.textContent='No results match';
+      dropdown.appendChild(em);
+      return;
+    }
+    matched.forEach(function(s){
+      var a=document.createElement('a');
+      a.className='sec-search-item '+(s.type==='section'?'sec-search-section':'sec-search-card');
+      a.href='javascript:void(0)';
+      var labelHtml='<span class="sec-search-item-label">'+highlight(s.label,q)+'</span>';
+      a.innerHTML=s.context
+        ? labelHtml+'<span class="sec-search-item-ctx">'+escHtml(s.context)+'</span>'
+        : labelHtml;
+      a.addEventListener('click',function(e){
+        e.preventDefault();
+        closeDropdown();
+        s.el.scrollIntoView({behavior:'smooth',block:'start'});
+      });
+      dropdown.appendChild(a);
+    });
+  }
+
+  function openDropdown(){
+    buildItems(input.value);
+    dropdown.classList.add('open');
+    input.classList.add('active');
+  }
+
+  function closeDropdown(){
+    dropdown.classList.remove('open');
+    input.classList.remove('active');
+    input.value='';
+    input.blur();
+  }
+
+  input.addEventListener('focus',openDropdown);
+  input.addEventListener('input',function(){buildItems(input.value);dropdown.classList.add('open');});
+  input.addEventListener('keydown',function(e){if(e.key==='Escape')closeDropdown();});
+  document.addEventListener('click',function(e){if(!wrap.contains(e.target))dropdown.classList.remove('open');});
 })();
 </script>
 </body>
