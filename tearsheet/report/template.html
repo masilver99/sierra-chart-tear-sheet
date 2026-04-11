@@ -186,6 +186,16 @@
       text-transform: none; letter-spacing: normal; font-weight: 400; line-height: 1.45;
     }
     .kpi-help:hover .kpi-help-popup { display: block; }
+    /* Lightweight inline hint badge (title tooltip only) */
+    .kpi-hint {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 13px; height: 13px; border-radius: 50%;
+      background: var(--muted); color: var(--bg);
+      font-size: 9px; font-weight: 700; line-height: 1;
+      margin-left: 5px; cursor: help; flex-shrink: 0;
+      vertical-align: middle;
+    }
+    .kpi-hint:hover { background: var(--blue); }
     /* KPI color scale (shared) */
     .kpi-scale-wrap { margin-top: 9px; }
     .kpi-marker-row { position: relative; height: 10px; }
@@ -209,6 +219,14 @@
     .alpha-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 25%, #d4a020 31%, #8bc34a 50%, #3fb950 63%, #56e07f 75%, #56e07f 100%); }
     /* Strategy Return gradient: red (<0) → amber (0–10%) → yellow-green (10–20%) → green (20–35%) → bright green (35%+); scale −20 to 100 */
     .strategy-return-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 16.7%, #d4a020 25%, #8bc34a 33%, #3fb950 46%, #56e07f 100%); }
+    /* Sharpe ratio gradient: red (suboptimal <1) → amber (good 1–2) → light green (very good 2–3) → bright green (excellent 3+); scale −1 to 4 */
+    .sharpe-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 40%, #d4a020 50%, #3fb950 70%, #56e07f 100%); }
+    /* Sortino ratio gradient: red (<0) → amber (0–1) → light green (1–2) → green (2–3) → bright green (3+); scale −1 to 4 */
+    .sortino-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 20%, #d4a020 40%, #8bc34a 60%, #3fb950 80%, #56e07f 100%); }
+    /* Calmar ratio gradient: red (poor <0.5) → amber (marginal 0.5–1) → light green (good 1–3) → green (excellent 3–5) → bright green (exceptional 5+); scale 0 to 6 */
+    .calmar-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 8%, #d4a020 17%, #3fb950 50%, #56e07f 83%); }
+    /* Beta gradient: descriptive, scale −1 to +3; blue (inverse <0) → green (neutral 0–0.5) → yellow (tracking 0.5–1.5) → red (high exposure >1.5) */
+    .beta-scale-bar { background: linear-gradient(to right, #6b78ff 0%, #3fb950 25%, #d4a020 50%, #f85149 75%, #f85149 100%); }
   </style>
   {{ plotly_js | safe }}
 </head>
@@ -296,9 +314,64 @@
       {% endif %}
     </div>
     <div class="kpi"><div class="label">Max Drawdown</div><div class="value neg">-${{ "{:,.2f}".format(metrics.max_drawdown) }}</div></div>
-    <div class="kpi"><div class="label">Sharpe</div><div class="value">{{ "{:.2f}".format(metrics.sharpe_ratio) if metrics.sharpe_ratio is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Sortino</div><div class="value">{{ "{:.2f}".format(metrics.sortino_ratio) if metrics.sortino_ratio is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Calmar</div><div class="value">{{ "{:.2f}".format(metrics.calmar_ratio) if metrics.calmar_ratio is not none else "—" }}</div></div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Sharpe<span class="kpi-help"><a href="https://en.wikipedia.org/wiki/Sharpe_ratio" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Sharpe ratio measures risk-adjusted return (excess return per unit of volatility). Below 1.0 is Suboptimal; 1.0–1.99 is Good; 2.0–2.99 is Very Good; 3.0+ is Excellent.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.sharpe_ratio) if metrics.sharpe_ratio is not none else "—" }}</div>
+      {% if metrics.sharpe_ratio is not none %}
+      {% set _sr_min = -1.0 %}
+      {% set _sr_max = 4.0 %}
+      {% if metrics.sharpe_ratio < _sr_min %}{% set _sr_clamped = _sr_min %}{% elif metrics.sharpe_ratio > _sr_max %}{% set _sr_clamped = _sr_max %}{% else %}{% set _sr_clamped = metrics.sharpe_ratio %}{% endif %}
+      {% set _sr_pct = ((_sr_clamped - _sr_min) / (_sr_max - _sr_min) * 100) | round(1) %}
+      {% if metrics.sharpe_ratio < 1.0 %}{% set _sr_tier = "Suboptimal" %}
+      {% elif metrics.sharpe_ratio < 2.0 %}{% set _sr_tier = "Good" %}
+      {% elif metrics.sharpe_ratio < 3.0 %}{% set _sr_tier = "Very Good" %}
+      {% else %}{% set _sr_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _sr_pct }}%"></div></div>
+        <div class="kpi-scale-bar sharpe-scale-bar"></div>
+        <div class="kpi-tier">{{ _sr_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Sortino<span class="kpi-help"><a href="https://www.investopedia.com/terms/s/sortinoratio.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Sortino ratio measures risk-adjusted return using only downside volatility. Below 0 is Undesirable; 0–1 is Suboptimal; above 1 is Good; above 2 is Very Good; above 3 is Excellent.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.sortino_ratio) if metrics.sortino_ratio is not none else "—" }}</div>
+      {% if metrics.sortino_ratio is not none %}
+      {% set _so_min = -1.0 %}
+      {% set _so_max = 4.0 %}
+      {% if metrics.sortino_ratio < _so_min %}{% set _so_clamped = _so_min %}{% elif metrics.sortino_ratio > _so_max %}{% set _so_clamped = _so_max %}{% else %}{% set _so_clamped = metrics.sortino_ratio %}{% endif %}
+      {% set _so_pct = ((_so_clamped - _so_min) / (_so_max - _so_min) * 100) | round(1) %}
+      {% if metrics.sortino_ratio < 0 %}{% set _so_tier = "Undesirable" %}
+      {% elif metrics.sortino_ratio < 1.0 %}{% set _so_tier = "Suboptimal" %}
+      {% elif metrics.sortino_ratio < 2.0 %}{% set _so_tier = "Good" %}
+      {% elif metrics.sortino_ratio < 3.0 %}{% set _so_tier = "Very Good" %}
+      {% else %}{% set _so_tier = "Excellent" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _so_pct }}%"></div></div>
+        <div class="kpi-scale-bar sortino-scale-bar"></div>
+        <div class="kpi-tier">{{ _so_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Calmar<span class="kpi-help"><a href="https://www.investopedia.com/terms/c/calmarratio.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Calmar ratio measures annualised return relative to maximum drawdown. Below 0.5 is Poor; 0.5–1.0 is Marginal; above 1.0 is Good; 3.0–5.0 is Excellent; above 5.0 is Exceptional.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(metrics.calmar_ratio) if metrics.calmar_ratio is not none else "—" }}</div>
+      {% if metrics.calmar_ratio is not none %}
+      {% set _ca_max = 6.0 %}
+      {% if metrics.calmar_ratio < 0 %}{% set _ca_clamped = 0.0 %}{% elif metrics.calmar_ratio > _ca_max %}{% set _ca_clamped = _ca_max %}{% else %}{% set _ca_clamped = metrics.calmar_ratio %}{% endif %}
+      {% set _ca_pct = (_ca_clamped / _ca_max * 100) | round(1) %}
+      {% if metrics.calmar_ratio < 0.5 %}{% set _ca_tier = "Poor" %}
+      {% elif metrics.calmar_ratio < 1.0 %}{% set _ca_tier = "Marginal" %}
+      {% elif metrics.calmar_ratio < 3.0 %}{% set _ca_tier = "Good" %}
+      {% elif metrics.calmar_ratio < 5.0 %}{% set _ca_tier = "Excellent" %}
+      {% else %}{% set _ca_tier = "Exceptional" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _ca_pct }}%"></div></div>
+        <div class="kpi-scale-bar calmar-scale-bar"></div>
+        <div class="kpi-tier">{{ _ca_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
     <div class="kpi">
       <div class="label kpi-label-row">Ulcer Index<span class="kpi-help"><a href="https://www.investopedia.com/terms/u/ulcerindex.asp" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">The Ulcer Index measures the depth and duration of drawdowns in equity. Lower is better—near zero means the account consistently trades at or near new highs.</span></span></div>
       <div class="value">{{ "{:.4f}".format(metrics.ulcer_index) if metrics.ulcer_index is not none else "—" }}</div>
@@ -343,6 +416,37 @@
     <div class="kpi"><div class="label">% Profitable Days</div><div class="value {{ 'pos' if metrics.pct_profitable_days and metrics.pct_profitable_days >= 0.5 else 'neg' }}">{{ "{:.1f}%".format(metrics.pct_profitable_days * 100) if metrics.pct_profitable_days is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Recovery Factor</div><div class="value {{ 'pos' if metrics.recovery_factor and metrics.recovery_factor >= 0 else 'neg' }}">{{ "{:.2f}".format(metrics.recovery_factor) if metrics.recovery_factor is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Win Rate (BE)</div><div class="value">{{ "{:.1f}%".format(metrics.win_rate_be * 100) if metrics.win_rate_be is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Kelly Criterion</div><div class="value {{ 'pos' if metrics.kelly_criterion is not none and metrics.kelly_criterion > 0 else 'neg' if metrics.kelly_criterion is not none and metrics.kelly_criterion < 0 else '' }}">{{ "{:.1f}%".format(metrics.kelly_criterion * 100) if metrics.kelly_criterion is not none else "—" }}<span class="kpi-hint" title="Optimal fraction of capital to risk per trade per Kelly formula: W - (1-W)/R">?</span></div></div>
+    <div class="kpi"><div class="label">Breakeven Win %</div><div class="value">{{ "{:.1f}%".format(metrics.breakeven_win_rate * 100) if metrics.breakeven_win_rate is not none else "—" }}<span class="kpi-hint" title="Minimum win rate to break even given current payoff ratio: 1/(1+R)">?</span></div></div>
+    <div class="kpi"><div class="label">Concentration (Top 5)</div><div class="value {{ 'neg' if metrics.concentration_ratio is not none and metrics.concentration_ratio > 0.5 else '' }}">{{ "{:.1f}%".format(metrics.concentration_ratio * 100) if metrics.concentration_ratio is not none else "—" }}<span class="kpi-hint" title="% of total gross profit contributed by the 5 largest winners. High values (>50%) signal concentrated P&amp;L.">?</span></div></div>
+    <div class="kpi"><div class="label">Avg MAE (Winners)</div><div class="value neg">{{ "${:,.2f}".format(metrics.avg_mae_winners) if metrics.avg_mae_winners is not none else "—" }}<span class="kpi-hint" title="Average max adverse excursion of winning trades — how much adversity winning trades withstood before turning profitable.">?</span></div></div>
+    <div class="kpi"><div class="label">Best Day</div><div class="value pos">{{ "${:,.2f}".format(metrics.max_winning_day) if metrics.max_winning_day is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label">Worst Day</div><div class="value neg">{{ "${:,.2f}".format(metrics.max_losing_day) if metrics.max_losing_day is not none else "—" }}</div></div>
+    <div class="kpi">
+      <div class="label kpi-label-row">MFE/MAE Ratio<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Avg MFE ÷ |Avg MAE|. Above 1 means the trade ran further in your favour than against you — a sign of good trade management and entry timing.</span></span></div>
+      <div class="value {{ 'pos' if metrics.avg_mfe_mae_ratio is not none and metrics.avg_mfe_mae_ratio >= 1 else 'neg' if metrics.avg_mfe_mae_ratio is not none else '' }}">{{ "{:.2f}".format(metrics.avg_mfe_mae_ratio) if metrics.avg_mfe_mae_ratio is not none else "—" }}</div>
+      {% if metrics.avg_mfe_mae_ratio is not none %}
+      {% if metrics.avg_mfe_mae_ratio < 0 %}{% set _mm_clamped = 0.0 %}{% elif metrics.avg_mfe_mae_ratio > 2.0 %}{% set _mm_clamped = 2.0 %}{% else %}{% set _mm_clamped = metrics.avg_mfe_mae_ratio %}{% endif %}
+      {% set _mm_rotate = (_mm_clamped / 2.0 * 180 - 90) | round(1) %}
+      {% if metrics.avg_mfe_mae_ratio < 0.67 %}{% set _mm_tier = "MAE Dominant" %}
+      {% elif metrics.avg_mfe_mae_ratio < 1.33 %}{% set _mm_tier = "Balanced" %}
+      {% else %}{% set _mm_tier = "MFE Dominant" %}{% endif %}
+      {# Speedometer: cx=50 cy=55 r=42; equal thirds 60° each; scale 0→2 neutral=1 at top #}
+      {# Boundaries: 180°=(8,55)  120°=(29,18.6)  60°=(71,18.6)  0°=(92,55) #}
+      <svg viewBox="0 0 100 64" width="110" height="70" style="display:block;margin:4px auto 0" aria-hidden="true">
+        <path d="M 8 55 A 42 42 0 0 1 29 18.6" fill="none" stroke="#f85149" stroke-width="10" stroke-linecap="butt"/>
+        <path d="M 29 18.6 A 42 42 0 0 1 71 18.6" fill="none" stroke="#d4a020" stroke-width="10" stroke-linecap="butt"/>
+        <path d="M 71 18.6 A 42 42 0 0 1 92 55" fill="none" stroke="#3fb950" stroke-width="10" stroke-linecap="butt"/>
+        <line x1="50" y1="55" x2="50" y2="18" stroke="var(--text,#e6edf3)" stroke-width="2" stroke-linecap="round"
+              transform="rotate({{ _mm_rotate }}, 50, 55)"/>
+        <circle cx="50" cy="55" r="3.5" fill="var(--text,#e6edf3)"/>
+        <text x="5" y="63" font-size="7" fill="var(--muted,#8b949e)" text-anchor="middle">0</text>
+        <text x="50" y="12" font-size="7" fill="var(--muted,#8b949e)" text-anchor="middle">1</text>
+        <text x="95" y="63" font-size="7" fill="var(--muted,#8b949e)" text-anchor="middle">2+</text>
+      </svg>
+      <div class="kpi-tier">{{ _mm_tier }}</div>
+      {% endif %}
+    </div>
   </div>
 
   <h2 id="sec-consistency">Consistency</h2>
@@ -369,18 +473,21 @@
     <div class="kpi"><div class="label">Fill Rate</div><div class="value">{{ "{:.1f}%".format(exec_metrics.fill_rate * 100) if exec_metrics.fill_rate is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Cancel Rate</div><div class="value">{{ "{:.1f}%".format(exec_metrics.cancel_rate * 100) if exec_metrics.cancel_rate is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Modify Rate</div><div class="value">{{ "{:.1f}%".format(exec_metrics.modify_rate * 100) if exec_metrics.modify_rate is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Avg Entry Chase</div><div class="value {{ 'neg' if exec_metrics.avg_entry_chase_pts and exec_metrics.avg_entry_chase_pts > 0 else 'pos' }}">{{ "{:.2f} pts".format(exec_metrics.avg_entry_chase_pts) if exec_metrics.avg_entry_chase_pts is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Avg Exit Chase</div><div class="value {{ 'neg' if exec_metrics.avg_exit_chase_pts and exec_metrics.avg_exit_chase_pts > 0 else 'pos' }}">{{ "{:.2f} pts".format(exec_metrics.avg_exit_chase_pts) if exec_metrics.avg_exit_chase_pts is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Max Entry Chase</div><div class="value">{{ "{:.2f} pts".format(exec_metrics.max_entry_chase_pts) if exec_metrics.max_entry_chase_pts is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Max Exit Chase</div><div class="value">{{ "{:.2f} pts".format(exec_metrics.max_exit_chase_pts) if exec_metrics.max_exit_chase_pts is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Avg Mods / Order</div><div class="value">{{ "{:.2f}".format(exec_metrics.avg_modifications_per_order) if exec_metrics.avg_modifications_per_order is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Pct Chased Entry</div><div class="value">{{ "{:.1f}%".format(exec_metrics.pct_chased_entry * 100) if exec_metrics.pct_chased_entry is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Pct Chased Exit</div><div class="value">{{ "{:.1f}%".format(exec_metrics.pct_chased_exit * 100) if exec_metrics.pct_chased_exit is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Avg Entry Chase<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average points chased per entry order. Positive means paying more than the original limit price to get filled; negative means getting a better price. Lower (or negative) is better.</span></span></div><div class="value {{ 'neg' if exec_metrics.avg_entry_chase_pts and exec_metrics.avg_entry_chase_pts > 0 else 'pos' }}">{{ "{:.2f} pts".format(exec_metrics.avg_entry_chase_pts) if exec_metrics.avg_entry_chase_pts is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Avg Exit Chase<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average points chased per exit order. Positive means accepting a worse price than the original limit to get out; negative means exiting at a better price. Lower is better.</span></span></div><div class="value {{ 'neg' if exec_metrics.avg_exit_chase_pts and exec_metrics.avg_exit_chase_pts > 0 else 'pos' }}">{{ "{:.2f} pts".format(exec_metrics.avg_exit_chase_pts) if exec_metrics.avg_exit_chase_pts is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Max Entry Chase<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The largest single entry chase recorded across all trades, in points. Represents the worst-case overpayment on an entry when following the market to get filled.</span></span></div><div class="value">{{ "{:.2f} pts".format(exec_metrics.max_entry_chase_pts) if exec_metrics.max_entry_chase_pts is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Max Exit Chase<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The largest single exit chase recorded across all trades, in points. Represents the worst-case execution slip when exiting a position by following the market price.</span></span></div><div class="value">{{ "{:.2f} pts".format(exec_metrics.max_exit_chase_pts) if exec_metrics.max_exit_chase_pts is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Avg Mods / Order<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average number of modifications per order placed. Frequent modifications suggest indecision, difficulty finding liquidity, or chasing price. Lower is better.</span></span></div><div class="value">{{ "{:.2f}".format(exec_metrics.avg_modifications_per_order) if exec_metrics.avg_modifications_per_order is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Pct Chased Entry<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Percentage of entry orders that were modified to follow the market price. High values indicate poor entry discipline or difficulty filling at intended prices.</span></span></div><div class="value">{{ "{:.1f}%".format(exec_metrics.pct_chased_entry * 100) if exec_metrics.pct_chased_entry is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Pct Chased Exit<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Percentage of exit orders that were modified to follow the market price. High values signal difficulty exiting at target prices, typically increasing slippage costs.</span></span></div><div class="value">{{ "{:.1f}%".format(exec_metrics.pct_chased_exit * 100) if exec_metrics.pct_chased_exit is not none else "—" }}</div></div>
   </div>
   {% endif %}
 
   <h2 id="sec-equity">Equity Curve</h2>
   <div class="chart-wrapper">{{ equity_chart | safe }}</div>
+
+  <h2 id="sec-fee-drag">Fee Drag</h2>
+  <div class="chart-wrapper">{{ fee_drag_chart | safe }}</div>
 
   <h2 id="sec-returns">Returns</h2>
   <div class="chart-wrapper">{{ returns_chart | safe }}</div>
@@ -428,7 +535,21 @@
       </div>
     </div>
     {% if benchmark_metrics.beta is not none %}
-    <div class="kpi"><div class="label">Beta</div><div class="value">{{ "{:.2f}".format(benchmark_metrics.beta) }}</div></div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Beta<span class="kpi-help"><a href="https://corporatefinanceinstitute.com/resources/valuation/what-is-beta-guide/" target="_blank" rel="noopener" class="kpi-help-link">?</a><span class="kpi-help-popup">Beta measures how much your strategy moves relative to the market. β≈0 is market-neutral; β=1 moves in step with the market; β&gt;1 amplifies market moves; β&lt;0 is inverse. Neither extreme is inherently good — it depends on market conditions and your strategy goals.</span></span></div>
+      <div class="value">{{ "{:.2f}".format(benchmark_metrics.beta) }}</div>
+      {% if benchmark_metrics.beta < -1 %}{% set _beta_clamped = -1.0 %}{% elif benchmark_metrics.beta > 3 %}{% set _beta_clamped = 3.0 %}{% else %}{% set _beta_clamped = benchmark_metrics.beta %}{% endif %}
+      {% set _beta_pct = ((_beta_clamped + 1) / 4.0 * 100) | round(1) %}
+      {% if benchmark_metrics.beta < -0.5 %}{% set _beta_tier = "Inverse" %}
+      {% elif benchmark_metrics.beta < 0.5 %}{% set _beta_tier = "Market Neutral" %}
+      {% elif benchmark_metrics.beta < 1.5 %}{% set _beta_tier = "Market Tracking" %}
+      {% else %}{% set _beta_tier = "High Exposure" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _beta_pct }}%"></div></div>
+        <div class="kpi-scale-bar beta-scale-bar"></div>
+        <div class="kpi-tier">{{ _beta_tier }}</div>
+      </div>
+    </div>
     <div class="kpi"><div class="label">Alpha (ann.)</div>
       <div class="value {{ 'pos' if benchmark_metrics.alpha_annualized >= 0 else 'neg' }}">
       {{ "{:.2f}%".format(benchmark_metrics.alpha_annualized * 100) }}</div></div>
@@ -448,11 +569,20 @@
   <h2 id="sec-daily-pnl">Daily P&amp;L</h2>
   <div class="chart-wrapper">{{ daily_pnl_chart | safe }}</div>
 
+  <h2 id="sec-daily-dist">Daily P&amp;L Distribution</h2>
+  <div class="chart-wrapper">{{ daily_distribution_chart | safe }}</div>
+
+  <h2 id="sec-waterfall">Trade P&amp;L Waterfall</h2>
+  <div class="chart-wrapper">{{ pnl_waterfall_chart | safe }}</div>
+
   <h2 id="sec-mfe-mae">MFE vs MAE</h2>
   <div class="chart-wrapper">{{ mfe_chart | safe }}</div>
 
   <h2 id="sec-distribution">Trade P&amp;L Distribution</h2>
   <div class="chart-wrapper">{{ pnl_distribution_chart | safe }}</div>
+
+  <h2 id="sec-win-loss-dist">Winners vs Losers Distribution</h2>
+  <div class="chart-wrapper">{{ win_loss_histogram_chart | safe }}</div>
 
   <h2 id="sec-duration-profit">Time in Trade vs P&amp;L (Std Dev)</h2>
   <div class="chart-wrapper">{{ duration_profit_scatter_chart | safe }}</div>
@@ -578,7 +708,32 @@
     </div>
     {% endif %}
 
+    {% if segmentation.by_exit_type %}
+    <div class="seg-card">
+      <h3>By Exit Type</h3>
+      <table>
+        <thead><tr><th>Exit Type</th><th>N</th><th>Win%</th><th>Gross P&amp;L</th><th>Avg P&amp;L</th><th>Profit Factor</th></tr></thead>
+        <tbody>
+        {% for seg, s in segmentation.by_exit_type.items() %}
+          <tr>
+            <td>{{ seg or "(untagged)" }}</td><td>{{ s.n_trades }}</td>
+            <td>{{ "{:.1f}%".format(s.win_rate * 100) if s.win_rate is not none else "—" }}</td>
+            <td class="{{ 'win' if s.total_gross_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.total_gross_pnl) }}</td>
+            <td class="{{ 'win' if s.avg_pnl >= 0 else 'loss' }}">${{ "{:,.2f}".format(s.avg_pnl) }}</td>
+            <td>{{ "{:.2f}".format(s.profit_factor) if s.profit_factor is not none else "—" }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
   </div>
+  {% endif %}
+
+  {% if segmentation and segmentation.by_exit_type and segmentation.by_exit_type|length > 0 %}
+  <h2 id="sec-exit-type">Exit Type Analysis</h2>
+  <div class="chart-wrapper">{{ exit_type_chart | safe }}</div>
   {% endif %}
 
   {% if segmentation and segmentation.by_date %}
