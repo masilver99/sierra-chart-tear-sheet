@@ -4,6 +4,8 @@ A comprehensive, self-contained HTML trade analysis report generated from a Sier
 
 Inspired by the [QuantStats](https://github.com/ranaroussi/quantstats) tearsheet for portfolio analysis.
 
+Donations are not wanted for this project.  Send your money to a great charity, instead.
+
 ## Usage
 
 ### Python
