@@ -934,42 +934,55 @@
   <div class="chart-wrapper">{{ pnl_waterfall_chart | safe }}</div>
 
   <h2 id="sec-mfe-mae">MFE vs MAE</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Scatter plot of Maximum Favourable Excursion (peak open profit) versus Maximum Adverse Excursion (worst open drawdown) for every trade. Trades clustered above the diagonal used their run-up well; trades below it gave back more than they ever gained. A healthy chart shows winners with large MFE and small MAE, while losers sit close to the origin.</p>
   <div class="chart-wrapper">{{ mfe_chart | safe }}</div>
 
   <h2 id="sec-mae-winners">MAE vs P&amp;L — Winning Trades (Std Dev)</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Scatter plot of absolute MAE (heat taken) on the x-axis versus gross P&amp;L on the y-axis — restricted to winning trades only. Reveals how much adversity your winners typically endured before closing in profit. A cluster near the left edge means winners rarely required tolerance; a wide x-axis spread suggests entries often go offside before recovering. The shaded bands show ±1σ and ±2σ ranges for both axes.</p>
   <div class="chart-wrapper">{{ mae_winners_scatter_chart | safe }}</div>
 
   <h2 id="sec-distribution">Trade P&amp;L Distribution</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Histogram of gross P&amp;L across all trades. The shape reveals whether your edge is consistent (tight bell curve) or driven by outliers (fat right tail). A pronounced right skew — a few large winners pulling the mean above the median — is generally desirable, but also means results can vary widely from period to period.</p>
   <div class="chart-wrapper">{{ pnl_distribution_chart | safe }}</div>
 
   <h2 id="sec-win-loss-dist">Winners vs Losers Distribution</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Overlaid histograms of winner and loser dollar amounts. Shows whether the two populations are cleanly separated or whether they overlap — a large overlap means the outcome of any individual trade is hard to predict. A fat-right winner tail combined with a tight loser distribution is the hallmark of a high-quality risk-reward structure.</p>
   <div class="chart-wrapper">{{ win_loss_histogram_chart | safe }}</div>
 
   <h2 id="sec-duration-profit">Time in Trade vs P&amp;L (Std Dev)</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Scatter plot of how long each trade was held (in minutes) versus its gross P&amp;L. The shaded bands mark ±1σ and ±2σ around the mean duration and mean P&amp;L. Trades in the upper-left quadrant are short-duration winners — often the most capital-efficient. A positive slope across the chart suggests longer holds are more profitable; a negative slope may indicate that holding too long erodes gains.</p>
   <div class="chart-wrapper">{{ duration_profit_scatter_chart | safe }}</div>
 
   <h2 id="sec-dd-recovery">Drawdown Recovery Profile</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Each bar represents one underwater episode — the number of days from the prior equity high until a new high was made (or until today if still underwater). Orange bars are recovered episodes; red bars are still open. The blue diamond markers show how many days it took to recover once the trough was hit. Long bars with slow recovery are a warning sign of structural drift in your edge.</p>
   <div class="chart-wrapper">{{ drawdown_recovery_chart | safe }}</div>
 
   <h2 id="sec-time-bucket-edge">Expectancy by Time Bucket</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Three panels showing expectancy (average P&amp;L per trade) broken out by trading session, day of week, and entry hour. The blue line shows trade count, giving context to low-sample bars. Positive bars mean the strategy has an edge in that bucket; negative bars flag times to avoid or trade smaller. Use this to sharpen your rules around when — not just how — to trade.</p>
   <div class="chart-wrapper">{{ time_bucket_expectancy_chart | safe }}</div>
 
   <h2 id="sec-excursion-profile">Excursion Percentile Profile</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Percentile profile (P50 / P75 / P90 / P95) of Maximum Adverse Excursion and Maximum Favourable Excursion across all trades, shown in both dollar and R terms (when initial risk is available). Use these curves to size stops and targets with statistical confidence: e.g., placing a stop beyond the P90 MAE means only 10% of trades historically would have hit it before potentially recovering.</p>
   <div class="chart-wrapper">{{ excursion_percentile_chart | safe }}</div>
 
   <h2 id="sec-holding-efficiency">Holding-Time Efficiency</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Expectancy, win rate, and MFE capture broken out by trade hold-time bucket (&lt;1m, 1–5m, 5–15m, 15–30m, 30m+). Reveals whether your edge is concentrated in quick scalps or longer swings. A bucket with high win rate but low MFE capture suggests exits are too early; a bucket with low win rate but high expectancy may be driven by a few large winners.</p>
   <div class="chart-wrapper">{{ holding_time_efficiency_chart | safe }}</div>
 
   <h2 id="sec-streak-state">Streak-State Analysis</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Next-trade expectancy and win rate conditioned on the current win/loss streak: after 1, 2, or 3+ consecutive wins or losses. This highlights whether your results are statistically independent or whether there is a measurable hot/cold-hand effect. Significant differences across streak states may warrant dynamic position sizing — smaller after losing streaks, larger when the edge is running hot.</p>
   <div class="chart-wrapper">{{ streak_state_chart | safe }}</div>
 
   <h2 id="sec-exit-efficiency">Exit Efficiency</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Two panels broken out by exit type (target, stop, manual, etc.): average MFE capture percentage (left) and average profit left on the table — the difference between peak runup and actual exit P&amp;L (right). Low capture on a particular exit type means that category of exit is consistently premature. High giveback on manual exits is a common sign of emotional or discretionary over-management.</p>
   <div class="chart-wrapper">{{ exit_efficiency_chart | safe }}</div>
 
   <h2 id="sec-profit-concentration">Profit Concentration</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Lorenz curve of profit concentration across winning trades. The x-axis shows the share of winners ranked from smallest to largest; the y-axis shows the cumulative share of total gross profit. The closer the curve hugs the bottom-right corner (furthest from the diagonal), the more concentrated profits are in a handful of big wins. The Gini coefficient summarises this in a single number: 0 = perfectly equal distribution, 1 = all profit from a single trade.</p>
   <div class="chart-wrapper">{{ concentration_lorenz_chart | safe }}</div>
 
   <h2 id="sec-position-size">Position Size Sensitivity</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Expectancy and win rate broken out by the number of contracts traded. Ideally, larger size should not significantly degrade expectancy or win rate — if it does, it may indicate execution friction, market impact, or psychological pressure at higher size. Use this chart to identify the optimal size range where your edge is strongest before scaling further.</p>
   <div class="chart-wrapper">{{ position_size_chart | safe }}</div>
 
   <h2 id="sec-monthly-heatmap">Monthly Return Heatmap</h2>
