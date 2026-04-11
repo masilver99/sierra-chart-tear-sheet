@@ -245,6 +245,8 @@
     .payoff-scale-bar { background: linear-gradient(to right, #f85149 0%, #f85149 20%, #d4a020 30%, #3fb950 50%, #56e07f 100%); }
     /* Gain-to-Pain gradient: red (<0.5) → amber (0.5–1) → yellow-green (1–2) → green (2–3) → bright green (3+); scale 0–4 */
     .gtp-scale-bar { background: linear-gradient(to right, #f85149 0%, #d4a020 25%, #8bc34a 50%, #3fb950 75%, #56e07f 100%); }
+    /* Concentration gradient: green (diversified 0–30%) → amber (moderate 30–50%) → red (concentrated 50–100%) */
+    .concentration-scale-bar { background: linear-gradient(to right, #3fb950 0%, #3fb950 30%, #d4a020 50%, #f85149 70%, #f85149 100%); }
     /* Section search */
     .sec-search-wrap { position: relative; margin-left: auto; flex-shrink: 0; }
     .sec-search-input {
@@ -599,9 +601,9 @@
     <div class="kpi"><div class="label">Avg Loss Duration</div><div class="value">{{ metrics.avg_duration_losers_s | format_duration }}</div></div>
     <div class="kpi"><div class="label">Shortest Trade</div><div class="value">{{ metrics.shortest_trade_s | format_duration }}</div></div>
     <div class="kpi"><div class="label">Longest Trade</div><div class="value">{{ metrics.longest_trade_s | format_duration }}</div></div>
-    <div class="kpi"><div class="label">Avg MFE</div><div class="value pos">{{ "${:,.2f}".format(metrics.avg_mfe) if metrics.avg_mfe is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">Avg MAE</div><div class="value neg">{{ "${:,.2f}".format(metrics.avg_mae) if metrics.avg_mae is not none else "—" }}</div></div>
-    <div class="kpi"><div class="label">MFE Capture</div><div class="value">{{ "{:.1f}%".format(metrics.mfe_capture_pct * 100) if metrics.mfe_capture_pct is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Avg MFE<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average Maximum Favourable Excursion — the mean peak open profit reached across all trades. A higher value indicates the market regularly moves in your favour after entry, suggesting good entry timing.</span></span></div><div class="value pos">{{ "${:,.2f}".format(metrics.avg_mfe) if metrics.avg_mfe is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">Avg MAE<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">Average Maximum Adverse Excursion — the mean worst open loss experienced per trade before closing. Lower values indicate tighter, more efficient entries where the market rarely moves far against you.</span></span></div><div class="value neg">{{ "${:,.2f}".format(metrics.avg_mae) if metrics.avg_mae is not none else "—" }}</div></div>
+    <div class="kpi"><div class="label kpi-label-row">MFE Capture<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">The percentage of each trade's peak open profit (MFE) actually retained at exit. 100% means you always exited at the exact peak. Consistently low values may indicate premature exits or suboptimal profit targets.</span></span></div><div class="value">{{ "{:.1f}%".format(metrics.mfe_capture_pct * 100) if metrics.mfe_capture_pct is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Long Count</div><div class="value">{{ metrics.long_count if metrics.long_count is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Short Count</div><div class="value">{{ metrics.short_count if metrics.short_count is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Long Win Rate</div><div class="value">{{ "{:.1f}%".format(metrics.long_win_rate * 100) if metrics.long_win_rate is not none else "—" }}</div></div>
@@ -612,7 +614,22 @@
     <div class="kpi"><div class="label">Win Rate (BE)</div><div class="value">{{ "{:.1f}%".format(metrics.win_rate_be * 100) if metrics.win_rate_be is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Kelly Criterion</div><div class="value {{ 'pos' if metrics.kelly_criterion is not none and metrics.kelly_criterion > 0 else 'neg' if metrics.kelly_criterion is not none and metrics.kelly_criterion < 0 else '' }}">{{ "{:.1f}%".format(metrics.kelly_criterion * 100) if metrics.kelly_criterion is not none else "—" }}<span class="kpi-hint" title="Optimal fraction of capital to risk per trade per Kelly formula: W - (1-W)/R">?</span></div></div>
     <div class="kpi"><div class="label">Breakeven Win %</div><div class="value">{{ "{:.1f}%".format(metrics.breakeven_win_rate * 100) if metrics.breakeven_win_rate is not none else "—" }}<span class="kpi-hint" title="Minimum win rate to break even given current payoff ratio: 1/(1+R)">?</span></div></div>
-    <div class="kpi"><div class="label">Concentration (Top 5)</div><div class="value {{ 'neg' if metrics.concentration_ratio is not none and metrics.concentration_ratio > 0.5 else '' }}">{{ "{:.1f}%".format(metrics.concentration_ratio * 100) if metrics.concentration_ratio is not none else "—" }}<span class="kpi-hint" title="% of total gross profit contributed by the 5 largest winners. High values (>50%) signal concentrated P&amp;L.">?</span></div></div>
+    <div class="kpi">
+      <div class="label kpi-label-row">Concentration (Top 5)<span class="kpi-help"><span class="kpi-help-link">?</span><span class="kpi-help-popup">% of total gross profit contributed by the 5 largest winning trades. Values above 50% signal concentrated P&amp;L — a few big wins are carrying the account. Lower values indicate more robust, consistent profitability across many trades.</span></span></div>
+      <div class="value {{ 'neg' if metrics.concentration_ratio is not none and metrics.concentration_ratio > 0.5 else '' }}">{{ "{:.1f}%".format(metrics.concentration_ratio * 100) if metrics.concentration_ratio is not none else "—" }}</div>
+      {% if metrics.concentration_ratio is not none %}
+      {% if metrics.concentration_ratio < 0 %}{% set _cr_clamped = 0.0 %}{% elif metrics.concentration_ratio > 1.0 %}{% set _cr_clamped = 1.0 %}{% else %}{% set _cr_clamped = metrics.concentration_ratio %}{% endif %}
+      {% set _cr_pct = (_cr_clamped * 100) | round(1) %}
+      {% if metrics.concentration_ratio < 0.30 %}{% set _cr_tier = "Diversified" %}
+      {% elif metrics.concentration_ratio < 0.50 %}{% set _cr_tier = "Moderate" %}
+      {% else %}{% set _cr_tier = "Concentrated ⚠" %}{% endif %}
+      <div class="kpi-scale-wrap">
+        <div class="kpi-marker-row"><div class="kpi-scale-marker" style="left:{{ _cr_pct }}%"></div></div>
+        <div class="kpi-scale-bar concentration-scale-bar"></div>
+        <div class="kpi-tier">{{ _cr_tier }}</div>
+      </div>
+      {% endif %}
+    </div>
     <div class="kpi"><div class="label">Avg MAE (Winners)</div><div class="value neg">{{ "${:,.2f}".format(metrics.avg_mae_winners) if metrics.avg_mae_winners is not none else "—" }}<span class="kpi-hint" title="Average max adverse excursion of winning trades — how much adversity winning trades withstood before turning profitable.">?</span></div></div>
     <div class="kpi"><div class="label">Best Day</div><div class="value pos">{{ "${:,.2f}".format(metrics.max_winning_day) if metrics.max_winning_day is not none else "—" }}</div></div>
     <div class="kpi"><div class="label">Worst Day</div><div class="value neg">{{ "${:,.2f}".format(metrics.max_losing_day) if metrics.max_losing_day is not none else "—" }}</div></div>
