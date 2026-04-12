@@ -217,7 +217,7 @@ def test_render_html_contains_new_chart_sections(minimal_report_inputs, tmp_path
     assert "Rolling Volatility (6-Months)" in html
     assert "Rolling Sharpe (6-Months)" in html
     assert "Rolling Sortino (6-Months)" in html
-    assert "EOY Returns  vs Benchmark" in html
+    assert "EOY Returns vs Benchmark" in html
     assert "Distribution of Monthly Returns" in html
 
 
@@ -260,6 +260,6 @@ def test_render_html_new_charts_with_benchmark(minimal_report_inputs, tmp_path):
     html = out.read_text(encoding="utf-8")
 
     assert "Daily Active Returns" in html
-    assert "EOY Returns  vs Benchmark" in html
+    assert "EOY Returns vs Benchmark" in html
     assert "Distribution of Monthly Returns" in html
     assert "SPY" in html

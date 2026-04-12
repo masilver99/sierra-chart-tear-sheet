@@ -772,7 +772,7 @@ def _eoy_returns_chart(equity_curve: list[dict], benchmark_data: dict | None) ->
     layout["barmode"] = "group"
     layout["showlegend"] = True
     layout["legend"] = dict(x=0.02, y=0.98)
-    layout["title"] = dict(text="EOY Returns  vs Benchmark", x=0.5, font=dict(size=14))
+    layout["title"] = dict(text="EOY Returns vs Benchmark", x=0.5, font=dict(size=14))
     layout["margin"] = dict(l=60, r=16, t=48, b=48)
     fig.update_layout(**layout)
     return _div(fig)
