@@ -193,3 +193,73 @@ def test_metrics_keys_present(minimal_report_inputs):
 def test_metrics_n_trades(minimal_report_inputs):
     trades, _, metrics = minimal_report_inputs
     assert metrics["n_trades"] == len(trades)
+
+
+def test_render_html_contains_new_chart_sections(minimal_report_inputs, tmp_path):
+    """New charts from the 'Add additional charts' issue should appear in the HTML."""
+    from tearsheet.report.render import render_report
+    import pandas as pd
+
+    trades, _, metrics = minimal_report_inputs
+    # Build a multi-day equity curve so rolling windows have something to chew on
+    eq = [
+        {"DateTime": pd.Timestamp(f"2026-0{m}-{d:02d} 16:00:00"), "balance": 10000.0 + i * 50.0}
+        for i, (m, d) in enumerate(
+            [(1, 2), (1, 3), (1, 6), (1, 7), (1, 8), (1, 9), (1, 10),
+             (1, 13), (1, 14), (1, 15), (1, 16), (1, 17)]
+        )
+    ]
+    out = tmp_path / "test_new_charts.html"
+    render_report(trades, eq, metrics, out, source_file="test.txt")
+    html = out.read_text(encoding="utf-8")
+
+    assert "Worst 5 Drawdown Periods" in html
+    assert "Rolling Volatility (6-Months)" in html
+    assert "Rolling Sharpe (6-Months)" in html
+    assert "Rolling Sortino (6-Months)" in html
+    assert "EOY Returns  vs Benchmark" in html
+    assert "Distribution of Monthly Returns" in html
+
+
+def test_render_html_new_charts_with_benchmark(minimal_report_inputs, tmp_path):
+    """New charts that use benchmark data render correctly when benchmark is supplied."""
+    from tearsheet.report.render import render_report
+    import pandas as pd
+
+    trades, _, metrics = minimal_report_inputs
+    eq = [
+        {"DateTime": pd.Timestamp(f"2026-0{m}-{d:02d} 16:00:00"), "balance": 10000.0 + i * 50.0}
+        for i, (m, d) in enumerate(
+            [(1, 2), (1, 3), (1, 6), (1, 7), (1, 8), (1, 9), (1, 10),
+             (1, 13), (1, 14), (1, 15), (1, 16), (1, 17)]
+        )
+    ]
+    bench_dates = [f"2026-01-{d:02d}" for d in [2, 3, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17]]
+    bench_norm = [100.0 + i * 0.3 for i in range(len(bench_dates))]
+    benchmark_data = {
+        "ticker": "SPY",
+        "dates": bench_dates,
+        "normalized": bench_norm,
+        "total_return_pct": (bench_norm[-1] / bench_norm[0] - 1) * 100,
+    }
+    benchmark_metrics = {
+        "strategy_total_return_pct": 5.5,
+        "benchmark_total_return_pct": 3.3,
+        "alpha": 2.2,
+        "beta": 0.7,
+        "alpha_annualized": 0.08,
+        "correlation": 0.6,
+        "ticker": "SPY",
+    }
+    out = tmp_path / "test_new_charts_benchmark.html"
+    render_report(
+        trades, eq, metrics, out, source_file="test.txt",
+        benchmark_data=benchmark_data,
+        benchmark_metrics=benchmark_metrics,
+    )
+    html = out.read_text(encoding="utf-8")
+
+    assert "Daily Active Returns" in html
+    assert "EOY Returns  vs Benchmark" in html
+    assert "Distribution of Monthly Returns" in html
+    assert "SPY" in html

@@ -969,11 +969,39 @@
   <h2 id="sec-drawdown">Drawdown</h2>
   <div class="chart-wrapper">{{ drawdown_chart | safe }}</div>
 
+  <h2 id="sec-worst-drawdown-periods">Worst 5 Drawdown Periods</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Cumulative return curve with the five deepest drawdown episodes highlighted in red. Use this to see when the largest peak-to-trough declines occurred relative to the overall equity path.</p>
+  <div class="chart-wrapper">{{ worst_drawdown_periods_chart | safe }}</div>
+
   <h2 id="sec-rolling">Rolling Analytics ({{ rolling_window }}-Trade Window)</h2>
   <div class="chart-wrapper">{{ rolling_chart | safe }}</div>
 
+  <h2 id="sec-rolling-volatility">Rolling Volatility (6-Months)</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">6-month rolling annualised volatility of daily returns for the strategy (blue) and benchmark (gold). The red dashed line marks the strategy's mean volatility over the full period. Lower and more stable volatility relative to the benchmark indicates a smoother equity curve.</p>
+  <div class="chart-wrapper">{{ rolling_volatility_chart | safe }}</div>
+
+  <h2 id="sec-rolling-sharpe">Rolling Sharpe (6-Months)</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">6-month rolling annualised Sharpe ratio (risk-free rate = 0). The red dashed line marks the commonly-cited target of 1.0. Periods below the black zero line indicate negative risk-adjusted returns over that window.</p>
+  <div class="chart-wrapper">{{ rolling_sharpe_chart | safe }}</div>
+
+  <h2 id="sec-rolling-sortino">Rolling Sortino (6-Months)</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">6-month rolling annualised Sortino ratio, which penalises only downside volatility. The red dashed line marks the strategy's mean Sortino over the full period. Higher values indicate that returns are being generated without proportionate downside risk.</p>
+  <div class="chart-wrapper">{{ rolling_sortino_chart | safe }}</div>
+
   <h2 id="sec-win-rate">Win Rate Over Time</h2>
   <div class="chart-wrapper">{{ win_rate_over_time_chart | safe }}</div>
+
+  <h2 id="sec-eoy-returns">EOY Returns vs Benchmark</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Year-by-year return comparison between the strategy (blue) and benchmark (gold). The red dashed line marks the strategy's mean annual return. Years where the strategy bar exceeds the benchmark bar represent alpha-generating periods.</p>
+  <div class="chart-wrapper">{{ eoy_returns_chart | safe }}</div>
+
+  <h2 id="sec-monthly-returns-dist">Distribution of Monthly Returns</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Overlapping histogram of monthly returns for the strategy (blue) and benchmark (gold). A strategy distribution shifted to the right of the benchmark with a narrower spread indicates both better returns and lower volatility on a monthly basis.</p>
+  <div class="chart-wrapper">{{ monthly_returns_dist_chart | safe }}</div>
+
+  <h2 id="sec-daily-active-returns">Daily Active Returns</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Daily strategy return minus benchmark return. Green bars represent days where the strategy outperformed; red bars represent underperformance. A preponderance of green bars above the zero line indicates consistent alpha generation relative to the benchmark.</p>
+  <div class="chart-wrapper">{{ daily_active_returns_chart | safe }}</div>
 
   <h2 id="sec-daily-pnl">Daily P&amp;L</h2>
   <div class="chart-wrapper">{{ daily_pnl_chart | safe }}</div>
