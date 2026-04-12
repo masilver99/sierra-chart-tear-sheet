@@ -1852,17 +1852,65 @@
 <script>
 (function(){
   var DEFAULT_THEME = 'dark';
-  function setTheme(t){
+
+  // Per-theme Plotly chart colour tokens
+  var CHART_THEMES = {
+    dark:   { paper: '#161b22', plot: '#161b22', font: '#c9d1d9', grid: '#30363d', zero: '#30363d', legend_bg: 'rgba(22,27,34,0.85)'    },
+    light:  { paper: '#ffffff', plot: '#ffffff',  font: '#1f2328', grid: '#d0d7de', zero: '#d0d7de', legend_bg: 'rgba(246,248,250,0.85)' },
+    pastel: { paper: '#f3e8ff', plot: '#f3e8ff',  font: '#2d1b4e', grid: '#d4b8f0', zero: '#d4b8f0', legend_bg: 'rgba(243,232,255,0.85)' }
+  };
+  // All known "neutral" zero-reference-line colours across the three themes
+  var NEUTRAL_COLORS = new Set(['#30363d', '#d0d7de', '#d4b8f0']);
+
+  function applyChartTheme(theme) {
+    if (typeof Plotly === 'undefined') return;
+    var t = CHART_THEMES[theme] || CHART_THEMES.dark;
+    document.querySelectorAll('.js-plotly-plot').forEach(function(div) {
+      if (!div.layout) return;   // not yet initialized
+      var lu = {
+        paper_bgcolor: t.paper,
+        plot_bgcolor:  t.plot,
+        'font.color':  t.font,
+        'legend.bgcolor':     t.legend_bg,
+        'legend.bordercolor': t.grid
+      };
+      // Use the fully-resolved layout when available; fall back to user layout.
+      // Either way, update every axis that exists in the chart (handles subplots).
+      var axSrc = div._fullLayout || div.layout;
+      Object.keys(axSrc).forEach(function(k) {
+        if (/^[xy]axis\d*$/.test(k)) {
+          lu[k + '.gridcolor']     = t.grid;
+          lu[k + '.zerolinecolor'] = t.zero;
+          lu[k + '.linecolor']     = t.grid;
+          lu[k + '.tickcolor']     = t.font;
+        }
+      });
+      // Re-colour "neutral" zero-reference shapes (add_hline / add_vline with y=0)
+      var rawShapes = (div.layout && div.layout.shapes) || [];
+      if (rawShapes.length) {
+        lu.shapes = rawShapes.map(function(s) {
+          var c = ((s.line && s.line.color) || '').toLowerCase();
+          return NEUTRAL_COLORS.has(c)
+            ? Object.assign({}, s, { line: Object.assign({}, s.line, { color: t.zero }) })
+            : s;
+        });
+      }
+      Plotly.relayout(div, lu);
+    });
+  }
+
+  function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('ts-theme', t);
     // Keep the select in sync when called programmatically (e.g. on page load)
     var sel = document.getElementById('theme-select');
-    if(sel) sel.value = t;
+    if (sel) sel.value = t;
+    applyChartTheme(t);
   }
   window.setTheme = setTheme;
   // Wire up the dropdown
   var sel = document.getElementById('theme-select');
-  if(sel) sel.addEventListener('change', function(){ setTheme(this.value); });
+  if (sel) sel.addEventListener('change', function() { setTheme(this.value); });
   // Apply saved theme on load
   setTheme(localStorage.getItem('ts-theme') || DEFAULT_THEME);
 })();
