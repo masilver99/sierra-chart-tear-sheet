@@ -7,6 +7,23 @@ import pytest
 
 from tearsheet.dataio.loader import REQUIRED_COLUMNS, validate_file
 
+# Hardcoded expected set — if REQUIRED_COLUMNS is accidentally changed this
+# assertion will catch it before any downstream test is affected.
+_EXPECTED_COLUMNS = frozenset({
+    "ActivityType",
+    "DateTime",
+    "Symbol",
+    "BuySell",
+    "Quantity",
+    "FillPrice",
+    "FilledQuantity",
+})
+
+
+def test_required_columns_match_expected():
+    """REQUIRED_COLUMNS must equal the exact 7-column set defined here."""
+    assert REQUIRED_COLUMNS == _EXPECTED_COLUMNS
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -14,7 +31,7 @@ from tearsheet.dataio.loader import REQUIRED_COLUMNS, validate_file
 
 def _minimal_valid_df(**overrides) -> pd.DataFrame:
     """Return a minimal DataFrame that passes validate_file."""
-    data = {col: [""] for col in REQUIRED_COLUMNS}
+    data = {col: [""] for col in _EXPECTED_COLUMNS}
     data["ActivityType"] = ["Fills"]
     data.update(overrides)
     return pd.DataFrame(data)
@@ -44,7 +61,7 @@ def test_multiple_activity_types_pass():
 # validate_file: missing required columns
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("missing_col", sorted(REQUIRED_COLUMNS))
+@pytest.mark.parametrize("missing_col", sorted(_EXPECTED_COLUMNS))
 def test_missing_required_column_raises(missing_col):
     df = _minimal_valid_df()
     df = df.drop(columns=[missing_col])
@@ -112,7 +129,7 @@ def test_load_file_tsv_no_fills_raises(tmp_path):
     """A valid-looking TSV with no Fills rows should raise ValueError."""
     from tearsheet.dataio.loader import load_file
 
-    cols = sorted(REQUIRED_COLUMNS)
+    cols = sorted(_EXPECTED_COLUMNS)
     header = "\t".join(cols) + "\n"
     row_values = {col: "" for col in cols}
     row_values["ActivityType"] = "Orders"
