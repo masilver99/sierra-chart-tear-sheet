@@ -29,11 +29,7 @@ def main(argv=None) -> None:
         sys.exit(1)
 
     from tearsheet.app.main import run
-    try:
-        run(input_path, args.output)
-    except ValueError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        sys.exit(1)
+    run(input_path, args.output)
 
 
 if __name__ == "__main__":
