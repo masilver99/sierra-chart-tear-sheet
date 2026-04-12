@@ -45,6 +45,15 @@ A live demo is available here: [sample report](https://masilver99.github.io/sier
 | **Winners vs Losers Distribution** | Overlaid histograms comparing winner and loser sizes |
 | **MFE vs MAE** | Scatter plot of Maximum Favourable vs Maximum Adverse Excursion |
 | **Time in Trade vs P&L** | Duration scatter coloured by outcome (std-dev bands) |
+| **Drawdown Recovery Profile** | Duration and recovery-time view of every underwater episode |
+| **Expectancy by Time Bucket** | Session / weekday / entry-hour expectancy with trade-count overlay |
+| **Excursion Percentile Profile** | P50/P75/P90/P95 profile for MFE and \|MAE\| in dollars and R |
+| **Holding-Time Efficiency** | Expectancy, win rate, and MFE capture across hold-time buckets |
+| **Streak-State Analysis** | Next-trade expectancy and win rate after win/loss streaks |
+| **Exit Efficiency** | MFE capture and profit-left-on-table by exit type |
+| **Profit Concentration** | Lorenz curve of winning-trade contribution with concentration diagnostics |
+| **Position Size Sensitivity** | Expectancy and win rate by contracts traded |
+| **Monthly Return Heatmap** | Month-by-month return heatmap for spotting seasonality and slumps |
 | **Timing Heatmap** | P&L heat map by day-of-week × entry hour |
 | **Trade Mix** | Pie charts: direction mix (long/short), session mix, outcome mix |
 | **R-Multiple Distribution** | Histogram of R-multiples with 1R and 2R markers |
@@ -73,6 +82,9 @@ A live demo is available here: [sample report](https://masilver99.github.io/sier
 | Max Drawdown ($) | Largest peak-to-trough dollar drop |
 | Max Drawdown (%) | Same, expressed as % of peak equity |
 | Ulcer Index | RMS of drawdown depth (penalises prolonged drawdowns) |
+| Drawdown Episodes / Longest DD | Number of underwater periods and the longest time spent below highs |
+| Median Recovery / Current Underwater | Typical recovery time and how long the strategy is currently underwater |
+| % Time at Highs / Days Since High | How often equity sits at new highs and how long since the last one |
 | Calmar Ratio | Annualised net return ÷ max drawdown |
 | Sterling Ratio | Annualised return ÷ (max drawdown % + 10% buffer) |
 | Recovery Factor | Total net P&L ÷ max drawdown |
@@ -95,6 +107,9 @@ A live demo is available here: [sample report](https://masilver99.github.io/sier
 | Avg MFE / MAE | Average maximum favourable/adverse excursion |
 | MFE/MAE Quality Ratio | > 1 means average run-up exceeds average drawdown |
 | Avg MAE (Winners) | Adversity that winning trades survived before closing |
+| MAE / MFE Percentiles | P50 / P75 / P90 / P95 excursion levels in dollars and, when available, in R |
+| Holding-Time Efficiency | Expectancy and win rate by hold-time bucket |
+| Streak-State Analysis | Next-trade expectancy and win rate after 1, 2, or 3+ win/loss streaks |
 | Long / Short Win Rate | Win rates broken out by direction |
 | Max Consecutive Wins/Losses | Longest winning and losing streaks |
 
@@ -105,6 +120,9 @@ A live demo is available here: [sample report](https://masilver99.github.io/sier
 | Breakeven Win Rate | Win rate needed for zero expectancy at current payoff ratio |
 | R-Multiple Stats | Avg R, median R, % ≥ 1R, % ≥ 2R, total R |
 | Concentration Ratio | % of gross profit from the top-5 winning trades |
+| Top-1 / Top-10 Profit Share | How much of total winner P&L comes from the single biggest or top 10 wins |
+| Winner Gini Coefficient | Robustness / concentration score for the winner distribution |
+| Position-Size Sensitivity | Expectancy and win rate broken out by contracts traded |
 
 #### Calendar Stats
 | Metric | Description |
@@ -114,6 +132,7 @@ A live demo is available here: [sample report](https://masilver99.github.io/sier
 | Avg Trades per Day | Average daily trade frequency |
 | Avg Daily Net P&L | Average net profit per trading day |
 | Max Winning / Losing Day | Best and worst single-day P&L |
+| Monthly Return Heatmap | Heatmap view of month-by-month returns |
 
 #### Execution Quality
 | Metric | Description |
@@ -123,6 +142,7 @@ A live demo is available here: [sample report](https://masilver99.github.io/sier
 | Modify Rate | % of orders that were modified before fill |
 | Avg Time to Fill | Entry and exit order fill speed (seconds) |
 | Target / Stop / Manual Exit % | Breakdown of how trades were closed |
+| Exit Efficiency / Left on Table | MFE capture and giveback by exit type |
 
 ### 📅 Segmentation Breakdowns
 
