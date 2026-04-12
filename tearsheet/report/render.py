@@ -444,6 +444,460 @@ def _returns_chart(equity_curve: list[dict], benchmark_data: dict | None) -> str
     return _div(fig)
 
 
+# ---------------------------------------------------------------------------
+# Rolling time-based analytics (6-month window)
+# ---------------------------------------------------------------------------
+
+def _rolling_period_days() -> int:
+    """Approximate trading days in 6 months."""
+    return 126
+
+
+def _daily_pct_returns(equity_curve: list[dict]) -> "list[tuple]":
+    """Return [(date, pct_return), ...] from equity curve daily series."""
+    import pandas as pd
+    series = _daily_equity_series(equity_curve)
+    if len(series) < 2:
+        return []
+    result = []
+    for i in range(1, len(series)):
+        prev = series[i - 1]["balance"]
+        curr = series[i]["balance"]
+        if prev and prev != 0:
+            result.append((series[i]["date"], (curr - prev) / prev))
+    return result
+
+
+def _benchmark_daily_pct_returns(benchmark_data: dict) -> "dict":
+    """Return {date: pct_return} from benchmark data."""
+    import datetime as _dt
+    dates = benchmark_data.get("dates", [])
+    normalized = benchmark_data.get("normalized", [])
+    result = {}
+    for i in range(1, len(normalized)):
+        if normalized[i - 1] and normalized[i - 1] != 0:
+            d = dates[i]
+            if isinstance(d, str):
+                d = _dt.date.fromisoformat(d)
+            result[d] = (normalized[i] - normalized[i - 1]) / normalized[i - 1]
+    return result
+
+
+def _rolling_volatility_chart(equity_curve: list[dict], benchmark_data: dict | None) -> str:
+    """Rolling 6-month annualised volatility for strategy and benchmark."""
+    import math
+    daily_rets = _daily_pct_returns(equity_curve)
+    if len(daily_rets) < 10:
+        return _empty_chart("Insufficient data for rolling volatility.")
+
+    window = _rolling_period_days()
+    dates, vols = [], []
+    for i in range(window - 1, len(daily_rets)):
+        window_rets = [r for _, r in daily_rets[i - window + 1:i + 1]]
+        if len(window_rets) < 2:
+            continue
+        mean = sum(window_rets) / len(window_rets)
+        variance = sum((r - mean) ** 2 for r in window_rets) / (len(window_rets) - 1)
+        vol = math.sqrt(variance) * math.sqrt(252)
+        dates.append(str(daily_rets[i][0]))
+        vols.append(round(vol, 6))
+
+    if not vols:
+        return _empty_chart("Insufficient data for rolling volatility.")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=dates, y=vols, mode="lines", name="Strategy",
+        line=dict(color="#58a6ff", width=1.5),
+        hovertemplate="Strategy Vol: %{y:.2%}<br>Date: %{x}<extra></extra>",
+    ))
+
+    if benchmark_data:
+        bench_map = _benchmark_daily_pct_returns(benchmark_data)
+        bench_dates_all = sorted(bench_map.keys())
+        b_dates, b_vols = [], []
+        for i in range(window - 1, len(bench_dates_all)):
+            w_rets = [bench_map[bench_dates_all[j]] for j in range(i - window + 1, i + 1)]
+            if len(w_rets) < 2:
+                continue
+            mean = sum(w_rets) / len(w_rets)
+            variance = sum((r - mean) ** 2 for r in w_rets) / (len(w_rets) - 1)
+            b_vols.append(round(math.sqrt(variance) * math.sqrt(252), 6))
+            b_dates.append(str(bench_dates_all[i]))
+        if b_dates:
+            ticker = benchmark_data.get("ticker", "SPY")
+            fig.add_trace(go.Scatter(
+                x=b_dates, y=b_vols, mode="lines", name=ticker,
+                line=dict(color="#d29922", width=1.5),
+                hovertemplate=f"{ticker} Vol: %{{y:.2%}}<br>Date: %{{x}}<extra></extra>",
+            ))
+
+    mean_vol = sum(vols) / len(vols)
+    fig.add_hline(y=mean_vol, line_color="#f85149", line_width=1.5, line_dash="dash")
+    fig.add_hline(y=0, line_color="#30363d", line_width=1, line_dash="dash")
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 300
+    layout["yaxis"] = {"title": "Annualised Volatility", "tickformat": ".0%"}
+    layout["showlegend"] = True
+    layout["legend"] = dict(x=0.78, y=0.98)
+    layout["title"] = dict(text="Rolling Volatility (6-Months)", x=0.5, font=dict(size=14))
+    layout["margin"] = dict(l=60, r=16, t=48, b=48)
+    fig.update_layout(**layout)
+    return _div(fig)
+
+
+def _rolling_sharpe_chart(equity_curve: list[dict]) -> str:
+    """Rolling 6-month annualised Sharpe ratio (risk-free rate = 0)."""
+    import math
+    daily_rets = _daily_pct_returns(equity_curve)
+    if len(daily_rets) < 10:
+        return _empty_chart("Insufficient data for rolling Sharpe.")
+
+    window = _rolling_period_days()
+    dates, sharpes = [], []
+    for i in range(window - 1, len(daily_rets)):
+        window_rets = [r for _, r in daily_rets[i - window + 1:i + 1]]
+        if len(window_rets) < 2:
+            continue
+        mean = sum(window_rets) / len(window_rets)
+        variance = sum((r - mean) ** 2 for r in window_rets) / (len(window_rets) - 1)
+        std = math.sqrt(variance)
+        sharpe = (mean / std * math.sqrt(252)) if std > 0 else 0.0
+        dates.append(str(daily_rets[i][0]))
+        sharpes.append(round(sharpe, 4))
+
+    if not sharpes:
+        return _empty_chart("Insufficient data for rolling Sharpe.")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=dates, y=sharpes, mode="lines", name="Sharpe",
+        line=dict(color="#58a6ff", width=1.5),
+        hovertemplate="Sharpe: %{y:.2f}<br>Date: %{x}<extra></extra>",
+    ))
+    fig.add_hline(y=1.0, line_color="#f85149", line_width=1.5, line_dash="dash")
+    fig.add_hline(y=0, line_color="#30363d", line_width=1, line_dash="dash")
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 300
+    layout["yaxis"] = {"title": "Rolling Sharpe Ratio"}
+    layout["title"] = dict(text="Rolling Sharpe (6-Months)", x=0.5, font=dict(size=14))
+    layout["margin"] = dict(l=60, r=16, t=48, b=48)
+    fig.update_layout(**layout)
+    return _div(fig)
+
+
+def _rolling_sortino_chart(equity_curve: list[dict]) -> str:
+    """Rolling 6-month annualised Sortino ratio (risk-free rate = 0)."""
+    import math
+    daily_rets = _daily_pct_returns(equity_curve)
+    if len(daily_rets) < 10:
+        return _empty_chart("Insufficient data for rolling Sortino.")
+
+    window = _rolling_period_days()
+    dates, sortinos = [], []
+    for i in range(window - 1, len(daily_rets)):
+        window_rets = [r for _, r in daily_rets[i - window + 1:i + 1]]
+        if len(window_rets) < 2:
+            continue
+        mean = sum(window_rets) / len(window_rets)
+        neg_rets = [r for r in window_rets if r < 0]
+        if neg_rets:
+            downside_var = sum(r ** 2 for r in neg_rets) / len(window_rets)
+            downside_std = math.sqrt(downside_var)
+        else:
+            downside_std = 0.0
+        sortino = (mean / downside_std * math.sqrt(252)) if downside_std > 0 else 0.0
+        dates.append(str(daily_rets[i][0]))
+        sortinos.append(round(sortino, 4))
+
+    if not sortinos:
+        return _empty_chart("Insufficient data for rolling Sortino.")
+
+    mean_sortino = sum(sortinos) / len(sortinos)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=dates, y=sortinos, mode="lines", name="Sortino",
+        line=dict(color="#58a6ff", width=1.5),
+        hovertemplate="Sortino: %{y:.2f}<br>Date: %{x}<extra></extra>",
+    ))
+    fig.add_hline(y=mean_sortino, line_color="#f85149", line_width=1.5, line_dash="dash")
+    fig.add_hline(y=0, line_color="#30363d", line_width=1, line_dash="dash")
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 300
+    layout["yaxis"] = {"title": "Rolling Sortino Ratio"}
+    layout["title"] = dict(text="Rolling Sortino (6-Months)", x=0.5, font=dict(size=14))
+    layout["margin"] = dict(l=60, r=16, t=48, b=48)
+    fig.update_layout(**layout)
+    return _div(fig)
+
+
+def _worst_drawdown_periods_chart(equity_curve: list[dict]) -> str:
+    """Cumulative % returns chart with the 5 worst drawdown periods shaded."""
+    if not equity_curve:
+        return _empty_chart("No equity data.")
+
+    import pandas as pd
+
+    df = pd.DataFrame(equity_curve)
+    df["date"] = pd.to_datetime(df["DateTime"]).dt.date
+    balance_key = "adjusted_balance" if "adjusted_balance" in df.columns else "balance"
+    daily = df.groupby("date").agg({balance_key: "last"}).reset_index()
+    start_bal = float(daily[balance_key].iloc[0])
+    dts = [str(d) for d in daily["date"]]
+    cum_returns = [round((float(v) / start_bal - 1) * 100, 4) for v in daily[balance_key]]
+
+    episodes = _drawdown_episodes(equity_curve)
+    if episodes:
+        worst5 = sorted(episodes, key=lambda e: e["max_depth"])[:5]
+    else:
+        worst5 = []
+
+    fig = go.Figure()
+
+    # Shade worst drawdown periods
+    for ep in worst5:
+        x0 = str(ep["start_date"])
+        x1 = str(ep.get("recovery_date", daily["date"].iloc[-1]))
+        fig.add_vrect(
+            x0=x0, x1=x1,
+            fillcolor="rgba(248,81,73,0.15)",
+            layer="below", line_width=0,
+        )
+
+    fig.add_trace(go.Scatter(
+        x=dts, y=cum_returns, mode="lines", name="Strategy",
+        line=dict(color="#58a6ff", width=1.5),
+        hovertemplate="Return: %{y:.1f}%<br>Date: %{x}<extra></extra>",
+    ))
+    fig.add_hline(y=0, line_color="#30363d", line_width=1, line_dash="dash")
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 320
+    layout["yaxis"] = {"title": "Cumulative Return", "ticksuffix": "%"}
+    layout["title"] = dict(text="Strategy - Worst 5 Drawdown Periods", x=0.5, font=dict(size=14))
+    layout["margin"] = dict(l=60, r=16, t=48, b=48)
+    fig.update_layout(**layout)
+    return _div(fig)
+
+
+def _eoy_returns_chart(equity_curve: list[dict], benchmark_data: dict | None) -> str:
+    """Side-by-side bar chart of annual returns: strategy vs benchmark."""
+    if not equity_curve:
+        return _empty_chart("No equity data.")
+
+    import pandas as pd
+
+    df = pd.DataFrame(equity_curve)
+    df["date"] = pd.to_datetime(df["DateTime"]).dt.date
+    balance_key = "adjusted_balance" if "adjusted_balance" in df.columns else "balance"
+    daily = df.groupby("date").agg({balance_key: "last"}).reset_index()
+    daily["year"] = [d.year for d in daily["date"]]
+
+    # Strategy annual returns
+    strat_by_year: dict[int, float] = {}
+    for yr, grp in daily.groupby("year"):
+        vals = grp[balance_key].tolist()
+        # Find starting balance: last balance of previous year or first balance ever
+        prev = daily[daily["year"] < yr][balance_key]
+        start = float(prev.iloc[-1]) if not prev.empty else float(vals[0])
+        end = float(vals[-1])
+        if start and start != 0:
+            strat_by_year[int(yr)] = round((end / start - 1) * 100, 4)
+
+    # Benchmark annual returns
+    bench_by_year: dict[int, float] = {}
+    if benchmark_data:
+        import datetime as _dt
+        b_dates = benchmark_data.get("dates", [])
+        b_norm = benchmark_data.get("normalized", [])
+        b_by_yr: dict[int, list[float]] = {}
+        for d_str, n in zip(b_dates, b_norm):
+            d = _dt.date.fromisoformat(d_str) if isinstance(d_str, str) else d_str
+            b_by_yr.setdefault(d.year, []).append((d, n))
+        for yr, entries in b_by_yr.items():
+            entries.sort()
+            first_n = entries[0][1]
+            last_n = entries[-1][1]
+            if first_n and first_n != 0:
+                # use start of year: last value of prior year if available
+                prev_yr_entries = b_by_yr.get(yr - 1)
+                if prev_yr_entries:
+                    start_n = sorted(prev_yr_entries)[-1][1]
+                else:
+                    start_n = first_n
+                if start_n and start_n != 0:
+                    bench_by_year[yr] = round((last_n / start_n - 1) * 100, 4)
+
+    all_years = sorted(set(list(strat_by_year.keys()) + list(bench_by_year.keys())))
+    strat_vals = [strat_by_year.get(yr) for yr in all_years]
+    bench_vals = [bench_by_year.get(yr) for yr in all_years]
+    year_labels = [str(yr) for yr in all_years]
+
+    fig = go.Figure()
+
+    if any(v is not None for v in bench_vals):
+        ticker = benchmark_data.get("ticker", "SPY") if benchmark_data else "SPY"
+        fig.add_trace(go.Bar(
+            x=year_labels,
+            y=[v if v is not None else 0 for v in bench_vals],
+            name=ticker,
+            marker_color="#d29922",
+            opacity=0.8,
+            hovertemplate=f"{ticker}: %{{y:.1f}}%<br>Year: %{{x}}<extra></extra>",
+        ))
+
+    strat_colors = ["#58a6ff" if (v or 0) >= 0 else "#f85149" for v in strat_vals]
+    fig.add_trace(go.Bar(
+        x=year_labels,
+        y=[v if v is not None else 0 for v in strat_vals],
+        name="Strategy",
+        marker_color=strat_colors,
+        hovertemplate="Strategy: %{y:.1f}%<br>Year: %{x}<extra></extra>",
+    ))
+
+    # Mean strategy annual return as red dashed line
+    valid_strat = [v for v in strat_vals if v is not None]
+    if valid_strat:
+        mean_ann = sum(valid_strat) / len(valid_strat)
+        fig.add_hline(y=mean_ann, line_color="#f85149", line_width=1.5, line_dash="dash")
+
+    fig.add_hline(y=0, line_color="#30363d", line_width=1, line_dash="dash")
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 320
+    layout["yaxis"] = {"title": "Annual Return", "ticksuffix": "%"}
+    layout["barmode"] = "group"
+    layout["showlegend"] = True
+    layout["legend"] = dict(x=0.02, y=0.98)
+    layout["title"] = dict(text="EOY Returns vs Benchmark", x=0.5, font=dict(size=14))
+    layout["margin"] = dict(l=60, r=16, t=48, b=48)
+    fig.update_layout(**layout)
+    return _div(fig)
+
+
+def _monthly_returns_dist_chart(equity_curve: list[dict], benchmark_data: dict | None) -> str:
+    """Overlapping histogram of monthly returns: strategy and benchmark."""
+    if not equity_curve:
+        return _empty_chart("No equity data.")
+
+    import pandas as pd
+    import datetime as _dt
+
+    df = pd.DataFrame(equity_curve)
+    df["date"] = pd.to_datetime(df["DateTime"]).dt.date
+    balance_key = "adjusted_balance" if "adjusted_balance" in df.columns else "balance"
+    daily = df.groupby("date").agg({balance_key: "last"}).reset_index()
+    daily["ym"] = [_dt.date(d.year, d.month, 1) for d in daily["date"]]
+
+    strat_monthly: list[float] = []
+    for ym, grp in daily.groupby("ym"):
+        vals = grp[balance_key].tolist()
+        all_prev = daily[daily["ym"] < ym][balance_key]
+        start = float(all_prev.iloc[-1]) if not all_prev.empty else float(vals[0])
+        end = float(vals[-1])
+        if start and start != 0:
+            strat_monthly.append(round((end / start - 1) * 100, 4))
+
+    bench_monthly: list[float] = []
+    if benchmark_data:
+        b_dates = benchmark_data.get("dates", [])
+        b_norm = benchmark_data.get("normalized", [])
+        b_by_ym: dict = {}
+        for d_str, n in zip(b_dates, b_norm):
+            d = _dt.date.fromisoformat(d_str) if isinstance(d_str, str) else d_str
+            ym = _dt.date(d.year, d.month, 1)
+            b_by_ym.setdefault(ym, []).append((d, n))
+        sorted_yms = sorted(b_by_ym.keys())
+        for i, ym in enumerate(sorted_yms):
+            entries = sorted(b_by_ym[ym])
+            last_n = entries[-1][1]
+            if i > 0:
+                prev_entries = sorted(b_by_ym[sorted_yms[i - 1]])
+                start_n = prev_entries[-1][1]
+            else:
+                start_n = entries[0][1]
+            if start_n and start_n != 0:
+                bench_monthly.append(round((last_n / start_n - 1) * 100, 4))
+
+    if not strat_monthly:
+        return _empty_chart("Insufficient monthly data.")
+
+    fig = go.Figure()
+    nbins = min(30, max(8, int(len(strat_monthly) ** 0.5 * 2)))
+    fig.add_trace(go.Histogram(
+        x=strat_monthly, name="Strategy",
+        nbinsx=nbins,
+        marker_color="#58a6ff", opacity=0.7,
+        hovertemplate="Return: %{x:.1f}%<br>Count: %{y}<extra>Strategy</extra>",
+    ))
+    if bench_monthly:
+        ticker = benchmark_data.get("ticker", "SPY") if benchmark_data else "SPY"
+        fig.add_trace(go.Histogram(
+            x=bench_monthly, name=ticker,
+            nbinsx=nbins,
+            marker_color="#d29922", opacity=0.7,
+            hovertemplate="Return: %{x:.1f}%<br>Count: %{y}<extra>" + ticker + "</extra>",
+        ))
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 300
+    layout["barmode"] = "overlay"
+    layout["xaxis"] = {"title": "Monthly Return (%)", "ticksuffix": "%"}
+    layout["yaxis"] = {"title": "Count"}
+    layout["showlegend"] = True
+    layout["legend"] = dict(x=0.78, y=0.98)
+    layout["title"] = dict(text="Distribution of Monthly Returns", x=0.5, font=dict(size=14))
+    layout["margin"] = dict(l=60, r=16, t=48, b=48)
+    fig.update_layout(**layout)
+    fig.add_vline(x=0, line_color="#30363d", line_width=1)
+    return _div(fig)
+
+
+def _daily_active_returns_chart(equity_curve: list[dict], benchmark_data: dict | None) -> str:
+    """Bar chart of daily active returns (strategy daily return minus benchmark daily return)."""
+    if not equity_curve:
+        return _empty_chart("No equity data.")
+
+    daily_rets = _daily_pct_returns(equity_curve)
+    if not daily_rets:
+        return _empty_chart("Insufficient data for active returns.")
+
+    if not benchmark_data:
+        return _empty_chart("Benchmark data required for active returns.")
+
+    bench_map = _benchmark_daily_pct_returns(benchmark_data)
+
+    dates, active = [], []
+    for d, r in daily_rets:
+        bench_r = bench_map.get(d)
+        if bench_r is not None:
+            dates.append(str(d))
+            active.append(round((r - bench_r) * 100, 4))
+
+    if not dates:
+        return _empty_chart("No overlapping dates for active returns.")
+
+    colors = ["#3fb950" if a >= 0 else "#f85149" for a in active]
+    fig = go.Figure(go.Bar(
+        x=dates, y=active,
+        marker_color=colors,
+        hovertemplate="Active Return: %{y:.2f}%<br>Date: %{x}<extra></extra>",
+    ))
+    fig.add_hline(y=0, line_color="#30363d", line_width=1)
+
+    layout = dict(_CHART_LAYOUT)
+    layout["height"] = 300
+    layout["yaxis"] = {"title": "Active Return (%)", "ticksuffix": "%"}
+    layout["bargap"] = 0.1
+    layout["title"] = dict(text="Daily Active Returns", x=0.5, font=dict(size=14))
+    layout["margin"] = dict(l=60, r=16, t=48, b=48)
+    fig.update_layout(**layout)
+    return _div(fig)
+
+
 def _trade_pnl_distribution_chart(trades: list[dict]) -> str:
     if not trades:
         return _empty_chart("No trade data.")
@@ -1839,6 +2293,13 @@ def render_report(
         exit_type_chart=_exit_type_chart(segmentation_data),
         daily_distribution_chart=_daily_distribution_chart(trades),
         win_rate_over_time_chart=_win_rate_over_time_chart(segmentation_data),
+        rolling_volatility_chart=_rolling_volatility_chart(equity_curve, benchmark_data),
+        rolling_sharpe_chart=_rolling_sharpe_chart(equity_curve),
+        rolling_sortino_chart=_rolling_sortino_chart(equity_curve),
+        worst_drawdown_periods_chart=_worst_drawdown_periods_chart(equity_curve),
+        eoy_returns_chart=_eoy_returns_chart(equity_curve, benchmark_data),
+        monthly_returns_dist_chart=_monthly_returns_dist_chart(equity_curve, benchmark_data),
+        daily_active_returns_chart=_daily_active_returns_chart(equity_curve, benchmark_data),
         rolling_window=20,
         rolling_metrics=rolling_metrics,
         has_r_multiples=has_r_multiples,

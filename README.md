@@ -73,9 +73,17 @@ A live demo is available here: [sample report](https://masilver99.github.io/sier
 | **Equity Curve** | Cumulative gross and net P&L over time with cash-flow adjustments |
 | **Fee Drag** | Gross vs. net equity side-by-side to visualise commission impact |
 | **Daily Returns** | Bar chart of daily P&L |
+| **Returns** | Cumulative % return for the strategy and benchmark, indexed to 0% at period start |
 | **Drawdown** | Underwater equity curve showing peak-to-trough drawdowns |
+| **Worst 5 Drawdown Periods** | Cumulative returns chart with the five deepest drawdown episodes shaded in red |
 | **Rolling Analytics** | 20-trade rolling window: expectancy, win rate, profit factor, Sharpe |
+| **Rolling Volatility (6-Months)** | 6-month rolling annualised volatility for strategy and SPY benchmark overlay |
+| **Rolling Sharpe (6-Months)** | 6-month rolling annualised Sharpe ratio (Rf = 0) with target reference lines |
+| **Rolling Sortino (6-Months)** | 6-month rolling annualised Sortino ratio using downside deviation only |
 | **Win Rate Over Time** | Rolling win rate plotted trade-by-trade |
+| **EOY Returns vs Benchmark** | Year-by-year grouped bar chart comparing strategy and benchmark annual returns |
+| **Distribution of Monthly Returns** | Overlapping histograms of monthly % returns for strategy and benchmark |
+| **Daily Active Returns** | Daily strategy return minus benchmark return, green/red by sign |
 | **Daily P&L** | Bar chart coloured green/red by profitable day |
 | **Daily P&L Distribution** | Histogram of daily profit/loss values |
 | **Trade P&L Waterfall** | Cumulative waterfall chart of every trade outcome |
