@@ -805,12 +805,15 @@
   {% endif %}
 
   <h2 id="sec-equity">Equity Curve</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Cumulative account balance over time. The adjusted balance (blue) strips out external cash flows so only trading P&L is reflected; the raw balance (dotted) shows the actual account value. Cash deposits and withdrawals are marked with triangles. A smooth, consistently rising curve indicates a stable edge; sudden spikes or flat periods signal concentrated risk or trading pauses.</p>
   <div class="chart-wrapper">{{ equity_chart | safe }}</div>
 
   <h2 id="sec-fee-drag">Fee Drag</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Cumulative gross P&L (blue) versus cumulative net P&L (red dotted) over time, with the widening gap between the two lines showing the total commission drag. A rapidly widening gap relative to gross P&L is a warning sign that fees are consuming a large fraction of your edge and that per-trade costs need to be reduced or trade frequency adjusted.</p>
   <div class="chart-wrapper">{{ fee_drag_chart | safe }}</div>
 
   <h2 id="sec-returns">Returns</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Cumulative percentage return for the strategy and benchmark, both indexed to 0% at the start of the period. Persistent outperformance of the blue line above the gold line indicates positive alpha. Periods where the strategy trails the benchmark highlight windows of relative underperformance worth investigating.</p>
   <div class="chart-wrapper">{{ returns_chart | safe }}</div>
 
   <h2 id="sec-montecarlo">Monte Carlo Simulation</h2>
@@ -967,6 +970,7 @@
 
 
   <h2 id="sec-drawdown">Drawdown</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Dollar drawdown from the most recent equity high. The shaded area below zero represents the depth of each underwater episode. Deep, prolonged troughs indicate periods where the strategy was significantly offside; a rapid return to zero after each trough signals fast recovery and a resilient edge.</p>
   <div class="chart-wrapper">{{ drawdown_chart | safe }}</div>
 
   <h2 id="sec-worst-drawdown-periods">Worst 5 Drawdown Periods</h2>
@@ -974,6 +978,7 @@
   <div class="chart-wrapper">{{ worst_drawdown_periods_chart | safe }}</div>
 
   <h2 id="sec-rolling">Rolling Analytics ({{ rolling_window }}-Trade Window)</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Three overlaid metrics computed over a rolling {{ rolling_window }}-trade window: expectancy in dollars (green line, left axis), win rate in percent (blue dotted, right axis), and Sharpe ratio (gold dashed, right axis). This chart shows whether your edge is stable, improving, or deteriorating over the course of the trading period — sustained positive expectancy with a high win rate and Sharpe is the hallmark of a consistent strategy.</p>
   <div class="chart-wrapper">{{ rolling_chart | safe }}</div>
 
   <h2 id="sec-rolling-volatility">Rolling Volatility (6-Months)</h2>
@@ -989,6 +994,7 @@
   <div class="chart-wrapper">{{ rolling_sortino_chart | safe }}</div>
 
   <h2 id="sec-win-rate">Win Rate Over Time</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Rolling win rate plotted trade-by-trade across all time buckets (day, week, month). Trend changes here can reveal when the strategy started to lose or regain its edge. A consistently flat line near your long-run win rate is ideal; a declining trend toward the right is an early warning sign that conditions have changed.</p>
   <div class="chart-wrapper">{{ win_rate_over_time_chart | safe }}</div>
 
   <h2 id="sec-eoy-returns">EOY Returns vs Benchmark</h2>
@@ -1004,12 +1010,15 @@
   <div class="chart-wrapper">{{ daily_active_returns_chart | safe }}</div>
 
   <h2 id="sec-daily-pnl">Daily P&amp;L</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Gross P&L summed by calendar day and displayed as a bar chart (green = profitable day, red = losing day). Patterns of clustered red bars can reveal adverse market regimes or systematic weaknesses on specific days of the week. Consistently large green bars relative to red bars indicate a strong day-level edge.</p>
   <div class="chart-wrapper">{{ daily_pnl_chart | safe }}</div>
 
   <h2 id="sec-daily-dist">Daily P&amp;L Distribution</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Histogram of daily gross P&L totals. The shape reveals whether your day-level results are normally distributed (bell curve), right-skewed (a few big winning days driving returns), or left-skewed (occasional large losing days dragging performance). A tight, right-skewed distribution centred above zero is the ideal profile.</p>
   <div class="chart-wrapper">{{ daily_distribution_chart | safe }}</div>
 
   <h2 id="sec-waterfall">Trade P&amp;L Waterfall</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Cumulative waterfall chart where each bar represents a single trade. Green bars add to the running total; red bars subtract from it. A staircase that rises steadily with only occasional dips indicates a consistent positive-expectancy edge. Large red bars that offset multiple green bars highlight high-impact losing trades that warrant further review.</p>
   <div class="chart-wrapper">{{ pnl_waterfall_chart | safe }}</div>
 
   <h2 id="sec-mfe-mae">MFE vs MAE</h2>
@@ -1065,12 +1074,15 @@
   <div class="chart-wrapper">{{ position_size_chart | safe }}</div>
 
   <h2 id="sec-monthly-heatmap">Monthly Return Heatmap</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Month-by-month return heatmap with years on the y-axis and months on the x-axis. Green cells are profitable months; red cells are losing months; intensity reflects magnitude. Use this to spot seasonal patterns, recurring weak months, or years where performance was concentrated in just a few months.</p>
   <div class="chart-wrapper">{{ monthly_return_heatmap_chart | safe }}</div>
 
   <h2 id="sec-timing">Timing Heatmap</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Gross P&L heat map with day-of-week on one axis and entry hour on the other. Bright green cells represent the most profitable time-of-day / day-of-week combinations; red cells flag consistently poor windows. Use this to refine trading hours or add time-based filters to your strategy rules.</p>
   <div class="chart-wrapper">{{ timing_heatmap_chart | safe }}</div>
 
   <h2 id="sec-mix">Trade Mix</h2>
+  <p style="color:#8b949e;font-size:0.82rem;margin:0 0 10px">Three pie charts showing the proportional breakdown of trades by direction (long vs. short), session (pre-market, RTH, after-hours), and outcome (win, loss, breakeven). A heavily skewed direction or session mix may indicate that the strategy's apparent edge is concentrated in one mode — useful context when evaluating robustness.</p>
   <div class="chart-grid">
     <div class="seg-card">
       <h3>Direction Mix</h3>
