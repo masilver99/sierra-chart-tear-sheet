@@ -12,6 +12,8 @@ jobs:
   build-windows-exe:
     name: Build tearsheet.exe
     runs-on: windows-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
